@@ -24,7 +24,7 @@ EMU_CXXFLAGS += -std=c++11 -static -Wall -I$(EMU_CSRC_DIR) -I$(SIM_CSRC_DIR) -I$
 EMU_CXXFLAGS += -DVERILATOR -DNUM_CORES=$(NUM_CORES)
 EMU_CXXFLAGS += $(shell sdl2-config --cflags) -fPIE
 EMU_LDFLAGS  += -lpthread -lSDL2 -ldl -lz -lsqlite3
-EMU_CXX_EXTRA_FLAGS ?= 
+EMU_CXX_EXTRA_FLAGS ?=
 
 EMU_VFILES    = $(SIM_VSRC)
 
@@ -109,15 +109,27 @@ EMU_HEADERS := $(shell find $(EMU_CSRC_DIR) -name "*.h")     \
                $(shell find $(DIFFTEST_CSRC_DIR) -name "*.h")
 EMU := $(BUILD_DIR)/emu
 
+ifndef USE_RELEASE
 $(EMU_MK): $(SIM_TOP_V) | $(EMU_DEPS)
 	@mkdir -p $(@D)
 	@echo "\n[verilator] Generating C++ files..." >> $(TIMELOG)
 	@date -R | tee -a $(TIMELOG)
 	$(TIME_CMD) verilator --cc --exe $(VERILATOR_FLAGS) \
 		-o $(abspath $(EMU)) -Mdir $(@D) $^ $(EMU_DEPS)
-	find $(BUILD_DIR) -name "VSimTop.h" | xargs sed -i 's/private/public/g'
-	find $(BUILD_DIR) -name "VSimTop.h" | xargs sed -i 's/const vlSymsp/vlSymsp/g'
-	find $(BUILD_DIR) -name "VSimTop__Syms.h" | xargs sed -i 's/VlThreadPool\* const/VlThreadPool*/g'
+	find -L $(BUILD_DIR) -name "VSimTop.h" | xargs sed -i 's/private/public/g'
+	find -L $(BUILD_DIR) -name "VSimTop.h" | xargs sed -i 's/const vlSymsp/vlSymsp/g'
+	find -L $(BUILD_DIR) -name "VSimTop__Syms.h" | xargs sed -i 's/VlThreadPool\* const/VlThreadPool*/g'
+else
+$(EMU_MK): $(EMU_CXXFILES)
+	@mkdir -p $(@D)
+	@echo "\n[verilator] Generating C++ files..." >> $(TIMELOG)
+	@date -R | tee -a $(TIMELOG)
+	$(TIME_CMD) verilator --cc --exe $(VERILATOR_FLAGS) \
+		-o $(abspath $(EMU)) -Mdir $(@D) $^ $(EMU_CXXFILES) $(USE_RELEASE)
+	find -L $(BUILD_DIR)/emu-compile -name "VSimTop.h" | xargs sed -i 's/private/public/g'
+	find -L $(BUILD_DIR)/emu-compile -name "VSimTop.h" | xargs sed -i 's/const vlSymsp/vlSymsp/g'
+	find -L $(BUILD_DIR)/emu-compile -name "VSimTop__Syms.h" | xargs sed -i 's/VlThreadPool\* const/VlThreadPool*/g'
+endif
 
 EMU_COMPILE_FILTER =
 # 2> $(BUILD_DIR)/g++.err.log | tee $(BUILD_DIR)/g++.out.log | grep 'g++' | awk '{print "Compiling/Generating", $$NF}'
@@ -140,7 +152,9 @@ B ?= 0
 E ?= 0
 
 ifndef NOOP_HOME
+ifndef RELEASE_DIR
 $(error NOOP_HOME is not set)
+endif
 endif
 EMU_FLAGS = -s $(SEED) -b $(B) -e $(E) $(SNAPSHOT_OPTION) $(WAVEFORM) $(EMU_ARGS)
 
