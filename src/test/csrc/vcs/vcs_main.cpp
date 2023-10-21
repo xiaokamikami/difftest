@@ -66,11 +66,6 @@ extern "C" void set_no_diff() {
 }
 
 
-extern "C" void set_max_cycles(long mc) {
-  printf("max cycles:%d\n", mc);
-  max_cycles = mc;
-}
-
 extern "C" void set_max_instrs(long mc) {
   printf("max instrs:%d\n",mc);
   max_instrs = mc;
@@ -98,16 +93,6 @@ extern "C" void simv_init() {
 extern "C" int simv_step() {
   if (assert_count > 0) {
     return 1;
-  }
-
-
-  static int cycles = 0;
-  if (max_cycles != 0) { // 0 for no limit
-    if (cycles >= max_cycles) {
-      eprintf(ANSI_COLOR_YELLOW "EXCEEDED MAX CYCLE:%d\n" ANSI_COLOR_RESET, max_cycles);
-      return 1;
-    }
-    cycles ++;
   }
 
   if (max_instrs != 0) { // 0 for no limit

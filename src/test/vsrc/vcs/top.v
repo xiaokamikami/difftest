@@ -23,7 +23,6 @@ import "DPI-C" function void set_flash_bin(string bin);
 import "DPI-C" function void set_gcpt_bin(string bin);
 import "DPI-C" function void set_diff_ref_so(string diff_so);
 import "DPI-C" function void set_no_diff();
-import "DPI-C" function void set_max_cycles(int mc);
 import "DPI-C" function void set_max_instrs(int mc);
 import "DPI-C" function void simv_init();
 `ifndef PALLADIUM
@@ -119,7 +118,6 @@ initial begin
   max_cycles = 0;
   if ($test$plusargs("max-cycles")) begin
     $value$plusargs("max-cycles=%d", max_cycles);
-    $display("set max cycles: %d", max_cycles);
   end
 
   // set checkpoint const
@@ -164,7 +162,7 @@ always @(posedge clock) begin
 end
 
 
-reg has_init;
+reg [63:0] n_cycles;
 reg [63:0]cycles;
 reg [31:0]trap;
 reg [`STEP_WIDTH - 1:0] difftest_step_delay;
@@ -172,7 +170,7 @@ reg [`STEP_WIDTH - 1:0] difftest_step_delay;
 always @(posedge clock) begin
   cycles = cycles + 1;
   if (reset) begin
-    has_init <= 1'b0;
+    n_cycles <= 64'h0;
     cycles   <= 64'b0;
     difftest_step_delay <= 0;
   end
