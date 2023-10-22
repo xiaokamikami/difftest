@@ -39,7 +39,7 @@
 #define DEFAULT_EMU_RAM_SIZE (8 * 1024 * 1024 * 1024UL) // 8 GB
 
 // physical memory base address
-#define PMEM_BASE 0x80000000UL
+#define PMEM_BASE 0x1000000000UL
 
 // first valid instruction's address, difftest starts from this instruction
 #if defined(CPU_NUTSHELL)
@@ -48,7 +48,7 @@
 #if defined(SELECTEDSpike)
 #define FIRST_INST_ADDRESS 0x80000000UL
 #else
-#define FIRST_INST_ADDRESS 0x10000000UL
+#define FIRST_INST_ADDRESS 0x20000UL
 #endif
 #endif
 
@@ -58,7 +58,7 @@
 
 // flash image to be used in simulation
 // flash access address align mask
-#define FLASH_ALIGH_MASK 0xfffffff8
+#define FLASH_ALIGH_MASK 0x1fff8
 
 #if defined(CPU_ROCKET_CHIP)
 #define DEFAULT_EMU_FLASH_SIZE 0x10000UL

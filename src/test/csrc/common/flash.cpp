@@ -62,7 +62,7 @@ void init_flash(const char *flash_bin) {
     // addiw   t0,zero,1
     // slli    to,to,  0x1f
     // jr      t0
-    flash_base[0] = 0x01f292930010029b;
+    flash_base[0] = 0x024292930010029b;
     flash_base[1] = 0x00028067;
     return;
   }
