@@ -11,7 +11,8 @@
 #include <unistd.h>
 #include <sqlite3.h>
 
-extern void init_db(bool en);
-extern void save_db(const char * filename);
+void init_db(bool en, bool select_enable, const char *select_db);
+void save_db(const char * filename);
+void init_logger(bool dump);
 
 #endif
