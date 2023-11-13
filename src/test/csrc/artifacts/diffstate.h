@@ -3,7 +3,11 @@
 
 #include <cstdint>
 
+#define CONFIG_DIFFTEST_DPIC
+
 #define CPU_XIANGSHAN
+
+#define NUM_CORES 1
 
 #define CONFIG_DIFFTEST_REFILLEVENT
 #define CONFIG_DIFF_REFILL_WIDTH 3
@@ -14,31 +18,20 @@ typedef struct {
   uint8_t  idtfr;
 } DifftestRefillEvent;
 
-#define CONFIG_DIFFTEST_VECCSRSTATE
-typedef struct {
-  uint64_t vstart;
-  uint64_t vxsat;
-  uint64_t vxrm;
-  uint64_t vcsr;
-  uint64_t vl;
-  uint64_t vtype;
-  uint64_t vlenb;
-} DifftestVecCSRState;
-
 #define CONFIG_DIFFTEST_LRSCEVENT
 typedef struct {
   uint8_t  valid;
   uint8_t  success;
 } DifftestLrScEvent;
 
-//#define CONFIG_DIFFTEST_STOREEVENT
-//#define CONFIG_DIFF_STORE_WIDTH 2
-//typedef struct {
-//  uint8_t  valid;
-//  uint64_t addr;
-//  uint64_t data;
-//  uint8_t  mask;
-//} DifftestStoreEvent;
+#define CONFIG_DIFFTEST_STOREEVENT
+#define CONFIG_DIFF_STORE_WIDTH 2
+typedef struct {
+  uint8_t  valid;
+  uint64_t addr;
+  uint64_t data;
+  uint8_t  mask;
+} DifftestStoreEvent;
 
 #define CONFIG_DIFFTEST_ATOMICEVENT
 typedef struct {
@@ -49,17 +42,6 @@ typedef struct {
   uint8_t  fuop;
   uint64_t out;
 } DifftestAtomicEvent;
-
-#define CONFIG_DIFFTEST_FPWRITEBACK
-#define CONFIG_DIFF_WB_FP_WIDTH 128
-typedef struct {
-  uint64_t data;
-} DifftestFpWriteback;
-
-#define CONFIG_DIFFTEST_ARCHVECREGSTATE
-typedef struct {
-  uint64_t value[64];
-} DifftestArchVecRegState;
 
 #define CONFIG_DIFFTEST_DEBUGMODE
 typedef struct {
@@ -88,12 +70,6 @@ typedef struct {
   uint8_t  data[64];
   uint64_t mask;
 } DifftestSbufferEvent;
-
-#define CONFIG_DIFFTEST_INTWRITEBACK
-#define CONFIG_DIFF_WB_INT_WIDTH 128
-typedef struct {
-  uint64_t data;
-} DifftestIntWriteback;
 
 #define CONFIG_DIFFTEST_INSTRCOMMIT
 #define CONFIG_DIFF_COMMIT_WIDTH 6
@@ -178,20 +154,16 @@ typedef struct {
   DifftestArchIntRegState        regs_int;
   DifftestCSRState               csr;
   DifftestArchFpRegState         regs_fp;
-  DifftestArchVecRegState        regs_vec;
-  DifftestVecCSRState            vcsr;
   DifftestArchEvent              event;
   DifftestAtomicEvent            atomic;
   DifftestDebugMode              dmregs;
-  DifftestFpWriteback            wb_fp[128];
   DifftestInstrCommit            commit[6];
-  DifftestIntWriteback           wb_int[128];
   DifftestLoadEvent              load[6];
   DifftestLrScEvent              lrsc;
   DifftestRefillEvent            refill[3];
   DifftestRunaheadCommitEvent    runahead_commit[6];
   DifftestSbufferEvent           sbuffer[2];
-//  DifftestStoreEvent             store[2];
+  DifftestStoreEvent             store[2];
   DifftestTrapEvent              trap;
 } DiffTestState;
 
