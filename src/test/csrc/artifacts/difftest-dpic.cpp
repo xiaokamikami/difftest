@@ -445,6 +445,28 @@ extern "C" void v_difftest_ArchFpRegState (
 }
 
 
+extern "C" void v_difftest_FpWriteback (
+  uint8_t  io_coreid,
+  uint8_t  io_address,
+  uint64_t io_data
+) {
+  if (difftest == NULL) return;
+  auto packet = &(difftest[io_coreid]->dut.wb_fp[io_address]);
+  packet->data = io_data;
+}
+
+
+extern "C" void v_difftest_IntWriteback (
+  uint8_t  io_coreid,
+  uint8_t  io_address,
+  uint64_t io_data
+) {
+  if (difftest == NULL) return;
+  auto packet = &(difftest[io_coreid]->dut.wb_int[io_address]);
+  packet->data = io_data;
+}
+
+
 extern "C" void v_difftest_InstrCommit (
   uint8_t  io_coreid,
   uint8_t  io_index,

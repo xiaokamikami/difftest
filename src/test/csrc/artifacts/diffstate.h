@@ -43,6 +43,12 @@ typedef struct {
   uint64_t out;
 } DifftestAtomicEvent;
 
+#define CONFIG_DIFFTEST_FPWRITEBACK
+#define CONFIG_DIFF_WB_FP_WIDTH 128
+typedef struct {
+  uint64_t data;
+} DifftestFpWriteback;
+
 #define CONFIG_DIFFTEST_DEBUGMODE
 typedef struct {
   uint8_t  debugMode;
@@ -70,6 +76,12 @@ typedef struct {
   uint8_t  data[64];
   uint64_t mask;
 } DifftestSbufferEvent;
+
+#define CONFIG_DIFFTEST_INTWRITEBACK
+#define CONFIG_DIFF_WB_INT_WIDTH 128
+typedef struct {
+  uint64_t data;
+} DifftestIntWriteback;
 
 #define CONFIG_DIFFTEST_INSTRCOMMIT
 #define CONFIG_DIFF_COMMIT_WIDTH 6
@@ -157,7 +169,9 @@ typedef struct {
   DifftestArchEvent              event;
   DifftestAtomicEvent            atomic;
   DifftestDebugMode              dmregs;
+  DifftestFpWriteback            wb_fp[128];
   DifftestInstrCommit            commit[6];
+  DifftestIntWriteback           wb_int[128];
   DifftestLoadEvent              load[6];
   DifftestLrScEvent              lrsc;
   DifftestRefillEvent            refill[3];

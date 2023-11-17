@@ -223,6 +223,18 @@ extern "C" void v_difftest_ArchFpRegState (
   uint64_t io_value_31
 );
 
+extern "C" void v_difftest_FpWriteback (
+  uint8_t  io_coreid,
+  uint8_t  io_address,
+  uint64_t io_data
+);
+
+extern "C" void v_difftest_IntWriteback (
+  uint8_t  io_coreid,
+  uint8_t  io_address,
+  uint64_t io_data
+);
+
 extern "C" void v_difftest_InstrCommit (
   uint8_t  io_coreid,
   uint8_t  io_index,
