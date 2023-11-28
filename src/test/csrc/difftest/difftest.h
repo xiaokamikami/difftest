@@ -20,20 +20,11 @@
 #include <vector>
 #include "common.h"
 #include "difftrace.h"
+#ifdef FUZZING
+#include "emu.h"
+#endif // FUZZING
 #include "refproxy.h"
 #include "golden.h"
-
-enum {
-  STATE_GOODTRAP = 0,
-  STATE_BADTRAP = 1,
-  STATE_ABORT = 2,
-  STATE_LIMIT_EXCEEDED = 3,
-  STATE_SIG = 4,
-  STATE_AMBIGUOUS = 5,
-  STATE_SIM_EXIT = 6,
-  STATE_FUZZ_COND = 7,
-  STATE_RUNNING = -1
-};
 
 enum { ICACHEID, DCACHEID, PAGECACHEID };
 enum { ITLBID, LDTLBID, STTLBID };
@@ -329,6 +320,7 @@ protected:
   }
   inline bool in_disambiguation_state() {
     static bool was_found = false;
+#ifdef FUZZING
     // Only in fuzzing mode
     if (proxy->in_disambiguation_state()) {
       was_found = true;
@@ -338,6 +330,7 @@ protected:
       stats.exit_code = SimExitCode::ambiguous;
 #endif // FUZZER_LIB
     }
+#endif // FUZZING
     return was_found;
   }
 
