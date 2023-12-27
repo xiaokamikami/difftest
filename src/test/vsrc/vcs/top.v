@@ -20,8 +20,11 @@ module tb_top();
 
 import "DPI-C" function void set_bin_file(string bin);
 import "DPI-C" function void set_flash_bin(string bin);
+import "DPI-C" function void set_gcpt_bin(string bin);
 import "DPI-C" function void set_diff_ref_so(string diff_so);
 import "DPI-C" function void set_no_diff();
+import "DPI-C" function void set_max_cycles(int mc);
+import "DPI-C" function void set_max_instrs(int mc);
 import "DPI-C" function void simv_init();
 `ifndef PALLADIUM
 import "DPI-C" function int simv_nstep(int step);
@@ -42,8 +45,11 @@ wire [`STEP_WIDTH - 1:0] difftest_step;
 
 string bin_file;
 string flash_bin_file;
+string gcpt_bin_file;
 string wave_type;
 string diff_ref_so;
+
+reg [63:0] max_instrs;
 reg [63:0] max_cycles;
 
 initial begin
@@ -95,6 +101,11 @@ initial begin
     $value$plusargs("flash=%s", flash_bin_file);
     set_flash_bin(flash_bin_file);
   end
+  // override gcpt :bin file
+  if ($test$plusargs("gcpt-bin")) begin
+    $value$plusargs("gcpt-bin=%s", flash_bin_file);
+    set_gcpt_bin(gcpt_bin_file);
+  end
   // diff-test golden model: nemu-so
   if ($test$plusargs("diff")) begin
     $value$plusargs("diff=%s", diff_ref_so);
@@ -109,6 +120,15 @@ initial begin
   if ($test$plusargs("max-cycles")) begin
     $value$plusargs("max-cycles=%d", max_cycles);
     $display("set max cycles: %d", max_cycles);
+  end
+
+  // set checkpoint const
+  if ($test$plusargs("gcpt-maxnum")) begin
+    $value$plusargs("gcpt-maxnum=%ld", max_instrs);
+    set_max_instrs(max_instrs);
+  end
+  else begin
+    max_instrs = 0;
   end
 
   // Note: reset delay #100 should be larger than RANDOMIZE_DELAY
@@ -143,15 +163,36 @@ always @(posedge clock) begin
   end
 end
 
+
+reg has_init;
+reg [63:0]cycles;
+reg [31:0]trap;
 reg [`STEP_WIDTH - 1:0] difftest_step_delay;
+
 always @(posedge clock) begin
+  cycles = cycles + 1;
   if (reset) begin
+    has_init <= 1'b0;
+    cycles   <= 64'b0;
     difftest_step_delay <= 0;
   end
   else begin
     difftest_step_delay <= difftest_step;
   end
 end
+
+
+  // check errors
+  if (!reset && has_init && difftest_step) begin
+    trap <= simv_step();
+    if (trap) begin
+      if (max_instrs !=0 && trap == 0xff) begin
+        $display("checkpoint reached the maximum count point");
+        $display("CPI = %d",cycles / max_instrs);
+      end
+      io_perfInfo_dump <= 1'b1;
+      delay #50;
+      io_perfInfo_dump <= 1'b0;
 
 `ifdef PALLADIUM
 wire simv_result;
