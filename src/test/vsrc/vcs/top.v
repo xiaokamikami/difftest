@@ -182,18 +182,6 @@ always @(posedge clock) begin
 end
 
 
-  // check errors
-  if (!reset && has_init && difftest_step) begin
-    trap <= simv_step();
-    if (trap) begin
-      if (max_instrs !=0 && trap == 0xff) begin
-        $display("checkpoint reached the maximum count point");
-        $display("CPI = %d",cycles / max_instrs);
-      end
-      io_perfInfo_dump <= 1'b1;
-      delay #50;
-      io_perfInfo_dump <= 1'b0;
-
 `ifdef PALLADIUM
 wire simv_result;
 GfifoControl gfifo(
@@ -230,7 +218,12 @@ always @(posedge clock) begin
 `else
     else if (|difftest_step_delay) begin
       // check errors
-      if (simv_nstep(difftest_step_delay)) begin
+      trap <= simv_nstep(difftest_step_delay)
+      if (trap) begin
+        if (max_instrs !=0 && trap == 0xff) begin
+          $display("checkpoint reached the maximum count point");
+          $display("CPI = %d",cycles / max_instrs);
+        end
         $display("DIFFTEST FAILED at cycle %d", n_cycles);
         $finish();
       end
