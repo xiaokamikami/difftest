@@ -24,6 +24,7 @@ import "DPI-C" function void set_gcpt_bin(string bin);
 import "DPI-C" function void set_diff_ref_so(string diff_so);
 import "DPI-C" function void set_no_diff();
 import "DPI-C" function void set_max_instrs(int mc);
+import "DPI-C" function void get_ipc(output long cycles);
 import "DPI-C" function void simv_init();
 `ifndef PALLADIUM
 import "DPI-C" function int simv_nstep(int step);
@@ -210,13 +211,14 @@ always @(posedge clock) begin
 `else
     else if (|difftest_step_delay) begin
       // check errors
-      trap <= simv_nstep(difftest_step_delay)
+      trap <= simv_nstep(difftest_step_delay);
       if (trap) begin
-        if (trap == 0xff) begin
-          $display("checkpoint reached the maximum count point");
-          $display("CPI = %lf",n_cycles / max_instrs);
+        if (trap == 'hff) begin
+          $display("GCPT runing reached the maximum count point");
+          get_ipc(n_cycles);
+        end else begin
+          $display("DIFFTEST FAILED at cycle %d", n_cycles);
         end
-        $display("DIFFTEST FAILED at cycle %d", n_cycles);
         $finish();
       end
     end

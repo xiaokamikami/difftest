@@ -30,9 +30,7 @@ static char *gcpt_bin_file = NULL;
 static bool enable_overr_gcpt = false;
 static bool enable_difftest = true;
 
-static int max_cycles = 0;
-static int max_instrs = 0;
-
+static uint64_t max_instrs = 0;
 
 extern "C" void set_bin_file(char *s) {
   printf("ram image:%s\n",s);
@@ -65,6 +63,12 @@ extern "C" void set_no_diff() {
   enable_difftest = false;
 }
 
+extern "C" void get_ipc(long *cycles) {
+  uint64_t now_cycles = *cycles;
+  uint64_t now_instrs = difftest_commit_sum(0);//Take the first core as the standard for now
+  printf("this simpoint CPI = %lf, IPC = %lf, Instrcount %ld",
+   now_cycles/max_instrs, max_instrs/now_cycles,max_instrs);
+}
 
 extern "C" void set_max_instrs(long mc) {
   printf("max instrs:%d\n",mc);
