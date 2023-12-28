@@ -161,17 +161,11 @@ always @(posedge clock) begin
   end
 end
 
-
-reg [63:0] n_cycles;
-reg [63:0]cycles;
 reg [31:0]trap;
 reg [`STEP_WIDTH - 1:0] difftest_step_delay;
 
 always @(posedge clock) begin
-  cycles = cycles + 1;
   if (reset) begin
-    n_cycles <= 64'h0;
-    cycles   <= 64'b0;
     difftest_step_delay <= 0;
   end
   else begin
@@ -218,9 +212,9 @@ always @(posedge clock) begin
       // check errors
       trap <= simv_nstep(difftest_step_delay)
       if (trap) begin
-        if (max_instrs !=0 && trap == 0xff) begin
+        if (trap == 0xff) begin
           $display("checkpoint reached the maximum count point");
-          $display("CPI = %d",cycles / max_instrs);
+          $display("CPI = %lf",n_cycles / max_instrs);
         end
         $display("DIFFTEST FAILED at cycle %d", n_cycles);
         $finish();
