@@ -150,6 +150,8 @@ extern "C" void simv_set_file_path() {
 #endif
 
 #ifdef GCPT_IMAGE
+  enable_overr_gcpt = true;
+  gcpt_bin_file = (char *)malloc(256);
   sscanf(GCPT_IMAGE,"%s",gcpt_bin_file);
 #endif
 
