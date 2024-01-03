@@ -22,7 +22,9 @@
 #include "ram.h"
 #include "flash.h"
 #include "refproxy.h"
-
+#ifdef PALLADIUM
+void set_file_path();
+#endif // PALLADIUM
 static bool has_reset = false;
 static char bin_file[256] = "ram.bin";
 static char *flash_bin_file = NULL;
@@ -65,9 +67,11 @@ extern "C" void set_no_diff() {
 
 extern "C" void get_ipc(long *cycles) {
   uint64_t now_cycles = *cycles;
-  uint64_t now_instrs = difftest_commit_sum(0);//Take the first core as the standard for now
-  printf("this simpoint CPI = %lf, IPC = %lf, Instrcount %ld",
-   now_cycles/max_instrs, max_instrs/now_cycles,max_instrs);
+  uint64_t now_instrs = difftest_commit_sum(0);// Take the first core as the standard for now
+  double IPC = (double)now_cycles / now_instrs;
+  double CPI = (double)now_instrs / now_cycles;
+  printf("this simpoint CPI = %lf, IPC = %lf, Instrcount %ld, Cycle %ld\n",
+   CPI, IPC, now_instrs, now_cycles);
 }
 
 extern "C" void set_max_instrs(long mc) {
@@ -138,6 +142,21 @@ extern "C" void simv_nstep(uint8_t step) {
 }
 extern "C" int simv_result_fetch() {
   return simv_result;
+}
+
+extern "C" void simv_set_file_path() {
+#ifdef MEMORY_IMAGE
+  sscanf(MEMORY_IMAGE,"%s",bin_file);
+#endif
+
+#ifdef GCPT_IMAGE
+  sscanf(GCPT_IMAGE,"%s",gcpt_bin_file);
+#endif
+
+#ifdef MAX_INSETER
+  max_instrs = MAX_INSETER;
+#endif
+
 }
 #else
 extern "C" int simv_nstep(uint8_t step) {

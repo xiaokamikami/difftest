@@ -24,10 +24,11 @@ import "DPI-C" function void set_gcpt_bin(string bin);
 import "DPI-C" function void set_diff_ref_so(string diff_so);
 import "DPI-C" function void set_no_diff();
 import "DPI-C" function void set_max_instrs(int mc);
-import "DPI-C" function void get_ipc(output long cycles);
+import "DPI-C" function void get_ipc(output longint cycles);
 import "DPI-C" function void simv_init();
 `ifndef PALLADIUM
 import "DPI-C" function int simv_nstep(int step);
+import "DPI-C" function void simv_set_file_path();
 `endif // PALLADIUM
 
 reg         clock;
@@ -49,7 +50,6 @@ string gcpt_bin_file;
 string wave_type;
 string diff_ref_so;
 
-reg [63:0] max_instrs;
 reg [63:0] max_cycles;
 
 initial begin
@@ -101,11 +101,6 @@ initial begin
     $value$plusargs("flash=%s", flash_bin_file);
     set_flash_bin(flash_bin_file);
   end
-  // override gcpt :bin file
-  if ($test$plusargs("gcpt-bin")) begin
-    $value$plusargs("gcpt-bin=%s", flash_bin_file);
-    set_gcpt_bin(gcpt_bin_file);
-  end
   // diff-test golden model: nemu-so
   if ($test$plusargs("diff")) begin
     $value$plusargs("diff=%s", diff_ref_so);
@@ -121,15 +116,9 @@ initial begin
     $value$plusargs("max-cycles=%d", max_cycles);
   end
 
-  // set checkpoint const
-  if ($test$plusargs("gcpt-maxnum")) begin
-    $value$plusargs("gcpt-maxnum=%ld", max_instrs);
-    set_max_instrs(max_instrs);
-  end
-  else begin
-    max_instrs = 0;
-  end
-
+`ifdef GCPT_IMAGE
+  simv_set_file_path();
+`endif
   // Note: reset delay #100 should be larger than RANDOMIZE_DELAY
   #100 reset = 0;
 end
@@ -186,9 +175,11 @@ GfifoControl gfifo(
 `endif
 
 reg [63:0] n_cycles;
+reg exit;
 always @(posedge clock) begin
   if (reset) begin
     n_cycles <= 64'h0;
+    exit     <= 1'b0;
   end
   else begin
     n_cycles <= n_cycles + 64'h1;
@@ -215,14 +206,22 @@ always @(posedge clock) begin
       if (trap) begin
         if (trap == 'hff) begin
           $display("GCPT runing reached the maximum count point");
-          get_ipc(n_cycles);
+          exit <= 1'b1;
         end else begin
           $display("DIFFTEST FAILED at cycle %d", n_cycles);
+          $finish();
         end
-        $finish();
       end
     end
 `endif // PALLADIUM
+  end
+end
+
+always @(posedge clock)begin
+  if (exit) begin
+    get_ipc(n_cycles);
+    // need more performance counter export
+    $finish();
   end
 end
 
