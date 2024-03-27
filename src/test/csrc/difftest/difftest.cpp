@@ -121,7 +121,7 @@ void difftest_finish() {
   }
   delete[] difftest;
   difftest = NULL;
-  soft_rst_count ++;
+  soft_rst_count++;
 }
 
 #ifdef CONFIG_DIFFTEST_SQUASH
@@ -401,8 +401,8 @@ void Difftest::do_exception() {
 
   progress = true;
 }
-#define TEST_DIFF
-//#define TEST_TRACE
+//#define DIFF_TRACE_EN
+#define DIFF_TRACE_CREAT
 int Difftest::do_instr_commit(int i) {
 
   // store the writeback info to debug array
@@ -480,49 +480,62 @@ int Difftest::do_instr_commit(int i) {
     return 0;
   }
 //soft_rst_count
-#if (defined(TEST_DIFF) || defined(TEST_TRACE))
+#if (defined(DIFF_TRACE_EN) || defined(DIFF_TRACE_CREAT))
   if (dut->commit[i].valid) {
-    static char diff_txt_path[256] = "/nfs/home/fengkehan/project/XiangShan/ready-to-run/difftrace.txt";
-#ifdef TEST_DIFF
-    static FILE *fp = fopen(diff_txt_path, "r");
+#ifdef DIFF_TRACE_FILE
+    static char diff_txt_path[256] = DIFF_TRACE_FILE;
 #else
-    static FILE *fp = fopen(diff_txt_path, "a+");
-#endif
-    if (fp == NULL) {
-      printf("not open fp\n");
-      assert(0);
-    }
-#ifdef TEST_DIFF
+    static char diff_txt_path[256] = "/nfs/home/fengkehan/project/XiangShan/ready-to-run/difftrace.txt";
+#endif // DIFF_TRACE_FILE
+#ifdef DIFF_TRACE_EN
+    static FILE *fp = fopen(diff_txt_path, "r");
     static uint64_t count = 0;
     static bool fault = 0;
     uint64_t last_pc;
-    if (realWen) {
-      char test_dut[128] = {};
-      char test_ref[128] = {};
-      sprintf(test_dut, "%lx,%x:%lx", dut->commit[i].pc, dut->commit[i].wdest, dut->commit[i].wdest!=0 ? get_commit_data(i) : 0);
-      if (fscanf(fp, "%s", test_ref) == EOF || feof(fp)) {
-        printf("difftest ref txt file run end\n");
+    char test_ref[128] = {};
+#else
+    static FILE *fp = fopen(diff_txt_path, "a+");
+#endif // DIFF_TRACE_EN
+    int have_commit = 0;
+    if (fp == NULL) {
+      printf("not open fp\n");
+      exit(0);
+    }
+    char test_dut[128] = {};
+    if (dut->commit[i].isStore) {
+      sprintf(test_dut, "stor%lx,%lx:%lx", dut->commit[i].pc, dut->store[i].addr, dut->store[i].data);
+      have_commit = 1;
+    } else if (dut->commit[i].isLoad) {
+      sprintf(test_dut, "load%lx,%lx:%lx", dut->commit[i].pc, dut->load[i].paddr, get_commit_data(i));
+      have_commit = 1;
+    } else if (realWen && !dut->commit[i].nFused) {
+      sprintf(test_dut, "wb%lx,%x:%lx", dut->commit[i].pc, dut->commit[i].wdest,
+              dut->commit[i].wdest != 0 ? get_commit_data(i) : 0);
+      have_commit = 1;
+    }
+    if (have_commit) {
+#ifdef DIFF_TRACE_EN
+    if (fscanf(fp, "%s", test_ref) == EOF || feof(fp)) {
+      printf("difftest ref txt file run end\n");
+      fclose(fp);
+      return 1;
+    }
+    if (strcmp(test_dut, test_ref) != 0) {
+      printf("difftest line %ld last pc %lx\n fault dut %s, ref %s\n\n", count, last_pc, test_dut, test_ref);
+      if (fault == 0) {
+        fault = 1;
+      } else {
         fclose(fp);
+        proxy->ref_reg_display();
         return 1;
       }
-      if (strcmp(test_dut, test_ref) != 0) {
-        printf("difftest line %ld last pc %lx\n fault dut %s, ref %s\n\n", count, last_pc, test_dut, test_ref);
-        if (fault == 0) {
-          fault = 1;
-        } else {
-          fclose(fp);
-          return 1;
-          proxy->ref_reg_display();
-        }
-      }
-      count ++;
-      last_pc = dut->commit[i].pc;
     }
+    count++;
+    last_pc = dut->commit[i].pc;
 #else
-    if (realWen)
-      fprintf(fp,"%lx,%x:%lx\n", dut->commit[i].pc, dut->commit[i].wdest,  dut->commit[i].wdest!=0 ? get_commit_data(i) : 0);
-    //fclose(fp);
-#endif
+    fprintf(fp, "%s\n", test_dut);
+#endif // DIFF_TRACE_EN
+    }
   }
 #endif
   // single step exec
@@ -537,10 +550,11 @@ int Difftest::do_instr_commit(int i) {
 #ifdef CONFIG_DIFFTEST_LOADEVENT
     if (dut->load[i].fuType == 0xC || dut->load[i].fuType == 0xF) {
       proxy->sync();
+      printf("Handle load instruction\n");
       bool reg_cmp_fail =
           !dut->commit[i].vecwen && *proxy->arch_reg(dut->commit[i].wdest, dut->commit[i].fpwen) != get_commit_data(i);
       if (realWen && reg_cmp_fail) {
-        // printf("---[DIFF Core%d] This load instruction gets rectified!\n", this->id);
+        printf("---[DIFF Core%d] This load instruction gets rectified!\n", this->id);
         // printf("---    ltype: 0x%x paddr: 0x%lx wen: 0x%x wdst: 0x%x wdata: 0x%lx pc: 0x%lx\n", dut->load[i].opType, dut->load[i].paddr, dut->commit[i].wen, dut->commit[i].wdest, get_commit_data(i), dut->commit[i].pc);
         uint64_t golden;
         int len = 0;
