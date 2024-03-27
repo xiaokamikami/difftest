@@ -29,7 +29,7 @@
 #endif // CONFIG_DIFFTEST_PERFCNT
 
 Difftest **difftest = NULL;
-
+static int soft_rst_count = 0;
 int difftest_init() {
 #ifdef CONFIG_DIFFTEST_PERFCNT
   difftest_perfcnt_init();
@@ -121,6 +121,7 @@ void difftest_finish() {
   }
   delete[] difftest;
   difftest = NULL;
+  soft_rst_count ++;
 }
 
 #ifdef CONFIG_DIFFTEST_SQUASH
@@ -400,7 +401,8 @@ void Difftest::do_exception() {
 
   progress = true;
 }
-
+#define TEST_DIFF
+//#define TEST_TRACE
 int Difftest::do_instr_commit(int i) {
 
   // store the writeback info to debug array
@@ -472,9 +474,57 @@ int Difftest::do_instr_commit(int i) {
   if (dut->commit[i].skip || (DEBUG_MODE_SKIP(dut->commit[i].valid, dut->commit[i].pc, dut->commit[i].inst))) {
     // We use the physical register file to get wdata
     proxy->skip_one(dut->commit[i].isRVC, realWen, dut->commit[i].wdest, get_commit_data(i));
+    if (dut->commit[i].isLoad) {
+      printf("maby need sync memory\n");
+    }
     return 0;
   }
-
+//soft_rst_count
+#if (defined(TEST_DIFF) || defined(TEST_TRACE))
+  if (dut->commit[i].valid) {
+    static char diff_txt_path[256] = "/nfs/home/fengkehan/project/XiangShan/ready-to-run/difftrace.txt";
+#ifdef TEST_DIFF
+    static FILE *fp = fopen(diff_txt_path, "r");
+#else
+    static FILE *fp = fopen(diff_txt_path, "a+");
+#endif
+    if (fp == NULL) {
+      printf("not open fp\n");
+      assert(0);
+    }
+#ifdef TEST_DIFF
+    static uint64_t count = 0;
+    static bool fault = 0;
+    uint64_t last_pc;
+    if (realWen) {
+      char test_dut[128] = {};
+      char test_ref[128] = {};
+      sprintf(test_dut, "%lx,%x:%lx", dut->commit[i].pc, dut->commit[i].wdest, dut->commit[i].wdest!=0 ? get_commit_data(i) : 0);
+      if (fscanf(fp, "%s", test_ref) == EOF || feof(fp)) {
+        printf("difftest ref txt file run end\n");
+        fclose(fp);
+        return 1;
+      }
+      if (strcmp(test_dut, test_ref) != 0) {
+        printf("difftest line %ld last pc %lx\n fault dut %s, ref %s\n\n", count, last_pc, test_dut, test_ref);
+        if (fault == 0) {
+          fault = 1;
+        } else {
+          fclose(fp);
+          return 1;
+          proxy->ref_reg_display();
+        }
+      }
+      count ++;
+      last_pc = dut->commit[i].pc;
+    }
+#else
+    if (realWen)
+      fprintf(fp,"%lx,%x:%lx\n", dut->commit[i].pc, dut->commit[i].wdest,  dut->commit[i].wdest!=0 ? get_commit_data(i) : 0);
+    //fclose(fp);
+#endif
+  }
+#endif
   // single step exec
   proxy->ref_exec(1);
   // when there's a fused instruction, let proxy execute more instructions.
