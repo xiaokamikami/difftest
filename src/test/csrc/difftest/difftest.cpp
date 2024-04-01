@@ -401,8 +401,13 @@ void Difftest::do_exception() {
 
   progress = true;
 }
+#define DIFF_TRACE_ALL
 //#define DIFF_TRACE_EN
-#define DIFF_TRACE_CREAT
+//#define DIFF_TRACE_CREAT
+
+
+
+
 int Difftest::do_instr_commit(int i) {
 
   // store the writeback info to debug array
@@ -479,23 +484,28 @@ int Difftest::do_instr_commit(int i) {
     }
     return 0;
   }
-//soft_rst_count
-#if (defined(DIFF_TRACE_EN) || defined(DIFF_TRACE_CREAT))
+
+#if (defined(DIFF_TRACE_EN) || defined(DIFF_TRACE_CREAT) || defined(DIFF_TRACE_ALL))
   if (dut->commit[i].valid) {
 #ifdef DIFF_TRACE_FILE
     static char diff_txt_path[256] = DIFF_TRACE_FILE;
 #else
     static char diff_txt_path[256] = "/nfs/home/fengkehan/project/XiangShan/ready-to-run/difftrace.txt";
 #endif // DIFF_TRACE_FILE
-#ifdef DIFF_TRACE_EN
-    static FILE *fp = fopen(diff_txt_path, "r");
-    static uint64_t count = 0;
+#ifndef DIFF_TRACE_CREAT
     static bool fault = 0;
+    static uint64_t count = 0;
     uint64_t last_pc;
     char test_ref[128] = {};
+#endif
+#if defined(DIFF_TRACE_ALL) || defined(DIFF_TRACE_CREAT)
+    static FILE *fw = fopen(diff_txt_path, "a+");
+#ifdef DIFF_TRACE_ALL
+    static FILE *fp = fopen(diff_txt_path, "r");
+#endif // DIFF_TRACE_ALL
 #else
     static FILE *fp = fopen(diff_txt_path, "a+");
-#endif // DIFF_TRACE_EN
+#endif // DIFF_TRACE_ALL
     int have_commit = 0;
     if (fp == NULL) {
       printf("not open fp\n");
@@ -514,28 +524,39 @@ int Difftest::do_instr_commit(int i) {
       have_commit = 1;
     }
     if (have_commit) {
-#ifdef DIFF_TRACE_EN
-    if (fscanf(fp, "%s", test_ref) == EOF || feof(fp)) {
-      printf("difftest ref txt file run end\n");
-      fclose(fp);
-      return 1;
-    }
-    if (strcmp(test_dut, test_ref) != 0) {
-      printf("difftest line %ld last pc %lx\n fault dut %s, ref %s\n\n", count, last_pc, test_dut, test_ref);
-      if (fault == 0) {
-        fault = 1;
-      } else {
+#if defined(DIFF_TRACE_ALL) || defined(DIFF_TRACE_EN)
+#ifdef DIFF_TRACE_ALL
+      if (soft_rst_count == 1) {
+#endif
+        if (fscanf(fp, "%s", test_ref) == EOF || feof(fp)) {
+          printf("difftest ref txt file run end\n");
+          fclose(fp);
+          return 1;
+        }
+        if (strcmp(test_dut, test_ref) != 0) {
+          printf("difftest line %ld last pc %lx\n fault dut %s, ref %s\n\n", count, last_pc, test_dut, test_ref);
+          if (fault == 0) {
+            fault = 1;
+            printf("difftest fault , try to continue running\n");
+          } else {
+            fclose(fp);
+            proxy->ref_reg_display();
+            return 1;
+          }
+        }
+        count++;
+        last_pc = dut->commit[i].pc;
         fclose(fp);
-        proxy->ref_reg_display();
-        return 1;
+#ifdef DIFF_TRACE_ALL
+      } else {
+        fprintf(fp, "%s\n", test_dut);
+        fclose(fp);
       }
-    }
-    count++;
-    last_pc = dut->commit[i].pc;
-#else
-    fprintf(fp, "%s\n", test_dut);
-#endif // DIFF_TRACE_EN
-    }
+#endif // DIFF_TRACE_ALL
+#elif defined(DIFF_TRACE_CREAT)
+      fprintf(fp, "%s\n", test_dut);
+#endif // DIFF_TRACE_ALL || DIFF_TRACE_EN
+      }
   }
 #endif
   // single step exec
