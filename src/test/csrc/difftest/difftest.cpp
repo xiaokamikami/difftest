@@ -480,7 +480,7 @@ int Difftest::do_instr_commit(int i) {
     // We use the physical register file to get wdata
     proxy->skip_one(dut->commit[i].isRVC, realWen, dut->commit[i].wdest, get_commit_data(i));
     if (dut->commit[i].isLoad) {
-      printf("maby need sync memory\n");
+      printf("load mmio maby need sync memory addr=%lx data=%lx\n",dut->load->paddr,get_commit_data(i));
     }
     return 0;
   }
@@ -498,19 +498,7 @@ int Difftest::do_instr_commit(int i) {
     uint64_t last_pc;
     char test_ref[128] = {};
 #endif
-#if defined(DIFF_TRACE_ALL) || defined(DIFF_TRACE_CREAT)
-    static FILE *fw = fopen(diff_txt_path, "a+");
-#ifdef DIFF_TRACE_ALL
-    static FILE *fp = fopen(diff_txt_path, "r");
-#endif // DIFF_TRACE_ALL
-#else
-    static FILE *fp = fopen(diff_txt_path, "a+");
-#endif // DIFF_TRACE_ALL
     int have_commit = 0;
-    if (fp == NULL) {
-      printf("not open fp\n");
-      exit(0);
-    }
     char test_dut[128] = {};
     if (dut->commit[i].isStore) {
       sprintf(test_dut, "stor%lx,%lx:%lx", dut->commit[i].pc, dut->store[i].addr, dut->store[i].data);
@@ -523,11 +511,25 @@ int Difftest::do_instr_commit(int i) {
               dut->commit[i].wdest != 0 ? get_commit_data(i) : 0);
       have_commit = 1;
     }
+
+#if defined(DIFF_TRACE_ALL)
+    static FILE *fw = fopen(diff_txt_path, "a+");
+    static FILE *fp = fopen(diff_txt_path, "r");
+#elif defined(DIFF_TRACE_CREAT)
+    static FILE *fp = fopen(diff_txt_path, "a+");
+#else
+    static FILE *fp = fopen(diff_txt_path, "r");
+#endif // DIFF_TRACE_ALL
+
     if (have_commit) {
 #if defined(DIFF_TRACE_ALL) || defined(DIFF_TRACE_EN)
 #ifdef DIFF_TRACE_ALL
       if (soft_rst_count == 1) {
 #endif
+        if (fp == NULL) {
+          printf("not open fp\n");
+          exit(0);
+        }
         if (fscanf(fp, "%s", test_ref) == EOF || feof(fp)) {
           printf("difftest ref txt file run end\n");
           fclose(fp);
@@ -546,11 +548,9 @@ int Difftest::do_instr_commit(int i) {
         }
         count++;
         last_pc = dut->commit[i].pc;
-        fclose(fp);
 #ifdef DIFF_TRACE_ALL
       } else {
-        fprintf(fp, "%s\n", test_dut);
-        fclose(fp);
+        fprintf(fw, "%s\n", test_dut);
       }
 #endif // DIFF_TRACE_ALL
 #elif defined(DIFF_TRACE_CREAT)
