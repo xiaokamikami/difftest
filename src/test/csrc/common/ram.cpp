@@ -461,58 +461,62 @@ void dramsim3_init() {
 typedef struct {
   uint64_t address;
   uint32_t id;
-  bool valid = 0;
+  bool isWrite;
+  bool hasdut;
 } request;
 typedef struct {
-  request write_queue[8];
-  request read_queue[8];
-} request_queue;
-static request_queue req_queue_step;
+  request read_fifo[1];
+  uint16_t size;
+} req_fifo;
+static req_fifo request_fifo;
 
-void memory_queue_push(uint64_t address, uint32_t id, bool isWrite, uint8_t Step) {
-  if (isWrite) {
-    req_queue_step.write_queue[Step].valid = 1;
-    req_queue_step.write_queue[Step].address = address;
-    req_queue_step.write_queue[Step].id = id;
-  } else {
-    req_queue_step.read_queue[Step].valid = 1;
-    req_queue_step.read_queue[Step].address = address;
-    req_queue_step.read_queue[Step].id = id;
-  }
+void memory_fifo_push(uint64_t address, uint32_t id, bool isWrite) {
+  request_fifo.read_fifo[request_fifo.size].address = address;
+  request_fifo.read_fifo[request_fifo.size].id = id;
+  request_fifo.read_fifo[request_fifo.size].isWrite = isWrite;
+  request_fifo.size ++;
 }
 
-void memory_queue_check(bool isWrite, uint8_t *Step) {
-  if (isWrite) {
-    while (req_queue_step.write_queue[*Step].valid == 1) {
-      auto req = new CoDRAMRequest();
-      auto meta = new dramsim3_meta;
-      req->address = req_queue_step.write_queue[*Step].address;
-      req->is_write = isWrite;
-      meta->id = req_queue_step.write_queue[*Step].id;
-      req->meta = meta;
-      dram->add_request(req);
-      req_queue_step.write_queue[*Step].valid = 0;
-      *Step = *Step < 8 ? *Step++ : 0;
-    }
-  } else {
-    while (req_queue_step.read_queue[*Step].valid == 1) {
-      auto req = new CoDRAMRequest();
-      auto meta = new dramsim3_meta;
-      req->address = req_queue_step.read_queue[*Step].address;
-      req->is_write = isWrite;
-      meta->id = req_queue_step.read_queue[*Step].id;
-      req->meta = meta;
-      dram->add_request(req);
-      req_queue_step.read_queue[*Step].valid = 0;
-      *Step = *Step < 8 ? *Step++ : 0;
+void memory_fifo_pop_all() {
+  bool order = 0;
+  if (request_fifo.read_fifo[0].address == request_fifo.read_fifo[1].address) {
+    printf("this tick have same read and write, use reorder\n");
+    if (request_fifo.read_fifo[1].isWrite) {
+      order = 1;
     }
   }
+
+  if (order) {
+    for (int i = request_fifo.size; i > 0; i--) {
+      auto req = new CoDRAMRequest();
+      auto meta = new dramsim3_meta;
+      req->address = request_fifo.read_fifo[i].address;
+      req->is_write = request_fifo.read_fifo[i].isWrite;
+      meta->id = request_fifo.read_fifo[i].id;
+      req->meta = meta;
+      dram->add_request(req);
+    }
+  } else {
+    for (int i = 0; i < request_fifo.size; i++) {
+      auto req = new CoDRAMRequest();
+      auto meta = new dramsim3_meta;
+      req->address = request_fifo.read_fifo[i].address;
+      req->is_write = request_fifo.read_fifo[i].isWrite;
+      meta->id = request_fifo.read_fifo[i].id;
+      req->meta = meta;
+      dram->add_request(req);
+    }
+  }
+  request_fifo.size = 0;
 }
 #endif // PALLADIUM
 
 void dramsim3_step() {
   if (dram == NULL)
     return;
+#ifdef PALLADIUM
+  memory_fifo_pop_all();
+#endif
   dram->tick();
 }
 
@@ -541,28 +545,19 @@ uint64_t memory_response(bool isWrite) {
   return 0;
 }
 
-bool memory_request(uint64_t address, uint32_t id, bool isWrite, uint8_t Step) {
+bool memory_request(uint64_t address, uint32_t id, bool isWrite) {
   if (dram == NULL)
     return false;
   bool will_accept = dram->will_accept(address, isWrite);
 #ifdef PALLADIUM
-  static uint8_t Step_Read = 0;
-  static uint8_t Step_Write = 0;
-
-  if (isWrite && (Step_Write == Step)) {
-    Step_Write = Step_Write < 8 ? Step_Write++ : 0;
-  } else if (Step_Read == Step) {
-    Step_Read = Step_Read < 8 ? Step_Read++ : 0;
+  // accept messege push fifo
+  if (will_accept) {
+    memory_fifo_push(address, id, isWrite);
+    return true;
   } else {
-    // accept but not sequential
-    if (will_accept) {
-      memory_queue_push(address, id, isWrite, Step);
-      return true;
-    } else {
-      return false;
-    }
+    return false;
   }
-#endif // PALLADIUM
+#else
   if (will_accept) {
     auto req = new CoDRAMRequest();
     auto meta = new dramsim3_meta;
@@ -571,8 +566,6 @@ bool memory_request(uint64_t address, uint32_t id, bool isWrite, uint8_t Step) {
     meta->id = id;
     req->meta = meta;
     dram->add_request(req);
-#ifdef PALLADIUM
-    memory_queue_check(isWrite, isWrite ? &Step_Write : &Step_Read);
 #endif // PALLADIUM
     return true;
   }
