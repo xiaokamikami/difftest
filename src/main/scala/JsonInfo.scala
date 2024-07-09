@@ -1,4 +1,4 @@
-package difftest
+package difftest.json
 
 import java.io._
 import scala.collection.mutable

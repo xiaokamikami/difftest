@@ -25,7 +25,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths}
 import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
-import difftest.DataCollector
+import difftest.json.DataCollector
 
 trait DifftestWithCoreid {
   val coreid = UInt(8.W)
