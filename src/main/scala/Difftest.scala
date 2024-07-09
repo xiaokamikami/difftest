@@ -25,6 +25,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths}
 import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
+import difftest.DataCollector
 
 trait DifftestWithCoreid {
   val coreid = UInt(8.W)
@@ -192,14 +193,17 @@ class DiffIntWriteback(numRegs: Int = 32) extends DataWriteback(numRegs) with Di
   override protected val needFlatten: Boolean = true
   // It is required for MMIO/Load(only for multi-core) data synchronization, and commit instr trace record
   override def supportsSquashBase: Bool = true.B
+  DataCollector.update(className, Map("numRegs" -> numRegs), false)
 }
 
 class DiffFpWriteback(numRegs: Int = 32) extends DiffIntWriteback(numRegs) {
   override val desiredCppName: String = "wb_fp"
+  DataCollector.update(className, Map("numRegs" -> numRegs), false)
 }
 
 class DiffVecWriteback(numRegs: Int = 32) extends DiffIntWriteback(numRegs) {
   override val desiredCppName: String = "wb_vec"
+  DataCollector.update(className, Map("numRegs" -> numRegs), false)
 }
 
 class DiffArchIntRegState extends ArchIntRegState with DifftestBundle {
@@ -344,6 +348,9 @@ object DifftestModule {
         case "--difftest-config" :: config :: tail =>
           Gateway.setConfig(config)
           nextOption(args.patch(args.indexOf("--difftest-config"), Nil, 2), tail)
+        case "--difftest-json" :: tail => 
+          DataCollector.diffJsonEnabled()
+          nextOption(args.patch(args.indexOf("--difftest-json"), Nil, 1), tail)
         case option :: tail => nextOption(args, tail)
       }
     }
@@ -364,6 +371,8 @@ object DifftestModule {
     if (dontCare) {
       difftest := DontCare
     }
+    val className = gen.getClass.getSimpleName
+    DataCollector.update(className, Map("delay" -> delay), true)
     difftest
   }
 
