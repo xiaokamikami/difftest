@@ -348,7 +348,7 @@ object DifftestModule {
         case "--difftest-config" :: config :: tail =>
           Gateway.setConfig(config)
           nextOption(args.patch(args.indexOf("--difftest-config"), Nil, 2), tail)
-        case "--difftest-json" :: tail => 
+        case "--difftest-json" :: tail =>
           DataCollector.diffJsonEnabled()
           nextOption(args.patch(args.indexOf("--difftest-json"), Nil, 1), tail)
         case option :: tail => nextOption(args, tail)
