@@ -6,8 +6,57 @@ import difftest._
 import difftest.gateway._
 import difftest.json._
 import ujson._
-import scala.collection.mutable._
 import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
+import chisel3.reflect.DataMirror
+  // Create IO based on endpoint's ports
+  // val io = IO(new Bundle {
+  //   val ports = DataMirror.modulePorts(endpoint).map { case (name, data) =>
+  //     name -> (data match {
+  //       case in: chisel3.Data => Flipped(in.cloneType)
+  //       case out: chisel3.Data => out.cloneType
+  //     })
+  //   }
+  // })
+  // // Connect all ports to DontCare
+  // io.elements.foreach { case (name, data) =>
+  //   data := 0.U.asTypeOf(data)
+  // }
+
+  // // DataMirror.modulePorts(endpoint).foreach { case (name, data) =>
+  // //   data := DontCare
+  // // }
+class JsonTop(config: GatewayConfig) extends Module {
+  // Instantiate the endpoint
+  val endpoint = DiffJsonTop.creat_top(config)
+  // Create IO based on endpoint's ports
+  val io = IO(new Bundle {
+    val ports = DataMirror.modulePorts(endpoint).map { case (name, data) =>
+      name -> (data.cloneType)
+    }.toSeq
+  })
+
+  // Connect all `in` ports to `1` and all `out` ports to `DontCare`
+  io.elements.foreach { case (name, data) =>
+    DataMirror.directionOf(data) match {
+      case ActualDirection.Input => data := 1.U
+      case ActualDirection.Output => data := DontCare
+      case _ => // Do nothing for non-directional elements
+    }
+  }
+
+  // Connect the endpoint to the IO ports
+  DataMirror.modulePorts(endpoint).foreach { case (name, data) =>
+    io.elements.get(name) match {
+      case Some(ioData) => DataMirror.directionOf(data) match {
+        case ActualDirection.Input => data := ioData
+        case ActualDirection.Output => ioData := data
+        case _ => // Do nothing for non-directional elements
+      }
+      case None => // Do nothing if no matching port found
+    }
+  }
+}
 
 object DiffJsonTop {
   private val instances = ListBuffer.empty[DifftestBundle]
@@ -39,118 +88,46 @@ object DiffJsonTop {
       val numRegs = params.get("numRegs").map(_.asInstanceOf[Double].toInt).getOrElse(0)
       val constructor = ModuleRegistry.getModule(className).getOrElse(throw new Exception(s"Unknown class name: $className"))
       (1 to exceptionCount).foreach { _ =>
-        val moduleInstance = constructor(Some(numRegs), delay, true).asInstanceOf[DifftestBundle]
+        val moduleInstance = constructor(Some(numRegs), delay, true)
         // Automatically set all IO to 1
-        // setAllIOToDefault(moduleInstance.io)
-        val bundle = WireInit(0.U.asTypeOf(moduleInstance))
-        // val packed = WireInit(bundle.asUInt)
+        InitializePorts(moduleInstance.asInstanceOf[DifftestBundle])
+        //val bundle = WireInit(0.U.asTypeOf(moduleInstance))
+        //val packed = WireInit(bundle.asUInt)
         // DifftestWiring.addSource(packed, s"gateway_${instances.length}")
-        instances += moduleInstance
+        instances += moduleInstance.asInstanceOf[DifftestBundle]
+        println(s"InitializePorts module with instance: $moduleInstance")
       }
     }
   }
-  def setAllIOToDefault(io: DifftestBundle): Unit = {
-    io match {
-      case bundle: Bundle =>
-        bundle.elements.foreach {
-          case (_, boolData: chisel3.Bool) => boolData := true.B
-          case (_, uintData: UInt) => uintData := Fill(uintData.getWidth, true.B)
-          case (_, sintData: SInt) => sintData := Fill(sintData.getWidth, true.B).asSInt
-          case (_, vecData: Vec[_]) => vecData.foreach(setAllIOPortsToDefault)
-          case (_, _) => // Handle other types if needed
-        }
+
+  def InitializePorts(bundle: difftest.DifftestBundle): Unit = {
+    bundle.elements.foreach {
+      case (_, port: chisel3.Bool) => port := DontCare
+      case (_, port: UInt) => port := DontCare
+      case (_, port: SInt) => port := DontCare
+      // 添加其他需要初始化的类型
       case _ =>
     }
   }
-  def setAllIOPortsToDefault(data: Data): Unit = {
-    data match {
-      case boolData: chisel3.Bool => boolData := true.B
-      case uintData: UInt => uintData := Fill(uintData.getWidth, true.B)
-      case sintData: SInt => sintData := Fill(sintData.getWidth, true.B).asSInt
-      case bundleData: Bundle => setAllIOPortsToDefault(bundleData)
-      case vecData: Vec[_] => vecData.foreach(setAllIOPortsToDefault)
-      case _ => // Handle other types if needed
-    }
-  }
 }
-/*
-object ModuleRegistry {
-  type ModuleConstructor = (Option[Int], Int, Boolean) => DifftestModule[_ <: DifftestBundle]
-  //private val moduleMap: mutable.Map[String, ModuleConstructor] = mutable.Map()
-  // 构造函数映射
-  private val moduleMap: Map[String, ModuleConstructor] = Map(
-    "DiffInstrCommit" -> ((param1: Option[Int], param2:Int, param3: Boolean) =>
-      DifftestModule(new DiffInstrCommit(param1.getOrElse(0)), delay = param2, dontCare = param3)
-    ),
-    "DiffArchEvent" -> ((param1: Option[Int], param2:Int, param3: Boolean) =>
-      DifftestModule(new DiffArchEvent, delay = param2, dontCare = param3)
-    ),
-    "DiffL1TLBEvent" -> ((param1: Option[Int], param2:Int, param3: Boolean) =>
-      DifftestModule(new DiffL1TLBEvent)
-    ),
-    "DiffL2TLBEvent" -> ((param1: Option[Int], param2:Int, param3: Boolean) =>
-      DifftestModule(new DiffL2TLBEvent)
-    ),
-    "DiffLrScEvent" -> ((param1: Option[Int], param2:Int, param3: Boolean) =>
-      DifftestModule(new DiffLrScEvent)
-    ),
-    "DiffHCSRState" -> ((param1: Option[Int], param2:Int, param3: Boolean) =>
-      DifftestModule(new DiffHCSRState)
-    ),
-    "DiffAtomicEvent" -> ((param1: Option[Int], param2:Int, param3: Boolean) =>
-      DifftestModule(new DiffAtomicEvent)
-    ),
-    "DiffLoadEvent" -> ((param1: Option[Int], param2:Int, param3: Boolean) =>
-      DifftestModule(new DiffLoadEvent, delay = param2)
-    ),
-    "DiffArchIntRegState" -> ((param1: Option[Int], param2:Int, param3: Boolean) =>
-      DifftestModule(new DiffArchIntRegState, delay = param2)
-    ),
-    "DiffArchFpRegState" -> ((param1: Option[Int], param2:Int, param3: Boolean) =>
-      DifftestModule(new DiffArchFpRegState, delay = param2)
-    ),
-    "DiffArchVecRegState" -> ((param1: Option[Int], param2:Int, param3: Boolean) =>
-      DifftestModule(new DiffArchVecRegState, delay = param2)
-    ),
-    "DiffIntWriteback" -> ((param1: Option[Int], param2:Int, param3: Boolean) =>
-      DifftestModule(new DiffIntWriteback(param1.getOrElse(0)))
-    ),
-    "DiffFpWriteback" -> ((param1: Option[Int], param2:Int, param3: Boolean) =>
-      DifftestModule(new DiffFpWriteback(param1.getOrElse(0)))
-    ),
-    "DiffVecWriteback" -> ((param1: Option[Int], param2:Int, param3: Boolean) =>
-      DifftestModule(new DiffVecWriteback(param1.getOrElse(0)))
-    ),
-  )
- 
-  def getModule(className: String): Option[ModuleConstructor] = {
-    println(s"Looking for className: $className")
-    val result = moduleMap.get(className)
-    if (result.isEmpty) {
-      println(s"Warning: ClassName $className not found in moduleMap.")
-      println(s"Current keys in moduleMap: ${moduleMap.keys.mkString(", ")}")
-    }
-    result
-  }
-}
-*/
+
 object ModuleRegistry {
 
   type ModuleConstructor = (Option[Int], Int, Boolean) => Any
 
   private val moduleMap: mutable.Map[String, ModuleConstructor] = mutable.Map()
 
-  // 注册模块
+  // Register module
   def register(className: String, constructor: ModuleConstructor): Unit = {
     moduleMap += (className -> constructor)
   }
 
-  // 获取模块
+  // Getting modules
   def getModule(className: String): Option[ModuleConstructor] = {
     moduleMap.get(className)
   }
 
-  // 初始化模块注册表
+  // Initialize the module registry
   def initialize(): Unit = {
     register("DiffInstrCommit", (param1: Option[Int], param2: Int, param3: Boolean) =>
       DifftestModule(new DiffInstrCommit(param1.getOrElse(0)), delay = param2, dontCare = param3)
