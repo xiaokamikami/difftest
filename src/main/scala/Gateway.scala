@@ -23,6 +23,8 @@ import difftest.dpic.DPIC
 import difftest.squash.Squash
 import difftest.batch.{Batch, BatchIO}
 import difftest.replay.Replay
+import difftest.json.JsonTop
+import difftest.json.DiffJsonTop
 
 import scala.collection.mutable.ListBuffer
 
@@ -38,6 +40,7 @@ case class GatewayConfig(
   hasInternalStep: Boolean = false,
   isNonBlock: Boolean = false,
   hasBuiltInPerf: Boolean = false,
+  useJsonEndPoint: Boolean = false,
 ) {
   def dutZoneSize: Int = if (hasDutZone) 2 else 1
   def dutZoneWidth: Int = log2Ceil(dutZoneSize)
@@ -108,6 +111,7 @@ object Gateway {
       case 'I' => config = config.copy(hasInternalStep = true)
       case 'N' => config = config.copy(isNonBlock = true)
       case 'P' => config = config.copy(hasBuiltInPerf = true)
+      case 'J' => config = config.copy(useJsonEndPoint = true)
       case x   => println(s"Unknown Gateway Config $x")
     }
     config.check()
@@ -128,6 +132,9 @@ object Gateway {
   }
 
   def collect(): GatewayResult = {
+    if (config.useJsonEndPoint) {
+      Module(new JsonTop(config))
+    }
     val sink = if (config.needEndpoint) {
       val endpoint = Module(new GatewayEndpoint(instances.toSeq, config))
       GatewayResult(

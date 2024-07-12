@@ -9,65 +9,21 @@ import ujson._
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import chisel3.reflect.DataMirror
-  // Create IO based on endpoint's ports
-  // val io = IO(new Bundle {
-  //   val ports = DataMirror.modulePorts(endpoint).map { case (name, data) =>
-  //     name -> (data match {
-  //       case in: chisel3.Data => Flipped(in.cloneType)
-  //       case out: chisel3.Data => out.cloneType
-  //     })
-  //   }
-  // })
-  // // Connect all ports to DontCare
-  // io.elements.foreach { case (name, data) =>
-  //   data := 0.U.asTypeOf(data)
-  // }
 
-  // // DataMirror.modulePorts(endpoint).foreach { case (name, data) =>
-  // //   data := DontCare
-  // // }
 class JsonTop(config: GatewayConfig) extends Module {
   // Instantiate the endpoint
   val endpoint = DiffJsonTop.creat_top(config)
   // Create IO based on endpoint's ports
   val io = IO(new Bundle {
     val ports = DataMirror.modulePorts(endpoint).map { case (name, data) =>
-      name -> (data.cloneType)
-    }.toSeq
+    name -> WireInit(data.cloneType, DontCare)
+    }.toMap
   })
-
-  // Connect all `in` ports to `1` and all `out` ports to `DontCare`
-  io.elements.foreach { case (name, data) =>
-    DataMirror.directionOf(data) match {
-      case ActualDirection.Input => data := 1.U
-      case ActualDirection.Output => data := DontCare
-      case _ => // Do nothing for non-directional elements
-    }
-  }
-
-  // Connect the endpoint to the IO ports
-  DataMirror.modulePorts(endpoint).foreach { case (name, data) =>
-    io.elements.get(name) match {
-      case Some(ioData) => DataMirror.directionOf(data) match {
-        case ActualDirection.Input => data := ioData
-        case ActualDirection.Output => ioData := data
-        case _ => // Do nothing for non-directional elements
-      }
-      case None => // Do nothing if no matching port found
-    }
-  }
 }
 
-object DiffJsonTop {
+object DiffJsonTop{
   private val instances = ListBuffer.empty[DifftestBundle]
-
-  // DifftestModule(new DiffInstrCommit(param1), delay = param2, dontCare = param3)),
-  // val result = DataCollector.query("DiffArchFpRegState", "delay", "exception_count")
-  // println(result) // 预期输出：Map("delay" -> Some(2), "exception_count" -> Some(2))
-
-  // // 提取值到变量
-  // val delay: Option[Int] = result.get("delay").flatMap(_.asInstanceOf[Option[Int]])
-  // val exceptionCount: Option[Int] = result.get("exception_count").flatMap(_.asInstanceOf[Option[Int]])
+  val instancecount: Int = 0
 
   def creat_top(config: GatewayConfig): GatewayEndpoint = {
     val json = DataCollector.readFromFile("difftest/diff_class_info.json")
@@ -91,9 +47,6 @@ object DiffJsonTop {
         val moduleInstance = constructor(Some(numRegs), delay, true)
         // Automatically set all IO to 1
         InitializePorts(moduleInstance.asInstanceOf[DifftestBundle])
-        //val bundle = WireInit(0.U.asTypeOf(moduleInstance))
-        //val packed = WireInit(bundle.asUInt)
-        // DifftestWiring.addSource(packed, s"gateway_${instances.length}")
         instances += moduleInstance.asInstanceOf[DifftestBundle]
         println(s"InitializePorts module with instance: $moduleInstance")
       }
@@ -105,12 +58,19 @@ object DiffJsonTop {
       case (_, port: chisel3.Bool) => port := DontCare
       case (_, port: UInt) => port := DontCare
       case (_, port: SInt) => port := DontCare
-      // 添加其他需要初始化的类型
+      case (_, port: Vec[_]) => port.foreach(_ := DontCare)
       case _ =>
     }
   }
 }
 
+// DifftestModule(new DiffInstrCommit(param1), delay = param2, dontCare = param3)),
+// val result = DataCollector.query("DiffArchFpRegState", "delay", "exception_count")
+// println(result) // 预期输出：Map("delay" -> Some(2), "exception_count" -> Some(2))
+
+// // 提取值到变量
+// val delay: Option[Int] = result.get("delay").flatMap(_.asInstanceOf[Option[Int]])
+// val exceptionCount: Option[Int] = result.get("exception_count").flatMap(_.asInstanceOf[Option[Int]])
 object ModuleRegistry {
 
   type ModuleConstructor = (Option[Int], Int, Boolean) => Any
