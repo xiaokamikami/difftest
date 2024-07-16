@@ -94,6 +94,21 @@ abstract class DPICBase(config: GatewayConfig) extends ExtModule with HasExtModu
        |""".stripMargin
   }
 
+  def traceDump: String = {
+    val name = "class_" + dpicFuncName
+    s"""
+    |#ifdef CONFIG_DIFFTEST_IOTRACE
+    |  char *struct_str = (char *)malloc(64 * 256);
+    |  memcpy(struct_str, (char *)packet, sizeof(*packet));
+    |  int written = sprintf((diffIOTraceBuff.traceInfo + diffIOTraceBuff.ptr), "%s,%s\\n", "$dpicFuncName", struct_str);
+    |  if(written > 0)
+    |    diffIOTraceBuff.ptr += written;
+    |  else
+    |    std::cerr << "Error writing to buffer" << std::endl;
+    |#endif
+    |""".stripMargin
+  }
+
   def internalStep: String = if (config.hasInternalStep)
     """
       |extern void simv_nstep(uint8_t step);
@@ -108,6 +123,7 @@ abstract class DPICBase(config: GatewayConfig) extends ExtModule with HasExtModu
        |$perfCnt
        |  ${dpicFuncAssigns.mkString("\n  ")}
        |  $internalStep
+       |$traceDump
        |}
        |""".stripMargin
 

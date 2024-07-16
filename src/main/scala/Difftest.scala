@@ -487,6 +487,14 @@ object DifftestModule {
          |void diffstate_perfcnt_finish(long long msec);
          |#endif // CONFIG_DIFFTEST_PERFCNT
          |""".stripMargin
+    difftestCpp +=
+      s"""
+         |#define CONFIG_DIFFTEST_IOTRACE
+         |#ifdef CONFIG_DIFFTEST_IOTRACE
+         |#define MAX_IOTRACE_COUNT 1024
+         |#define MAX_IOTRACE_BUFF_SIZE (NUM_CORES * MAX_IOTRACE_COUNT * 50 * 1024)
+         |#endif // CONFIG_DIFFTEST_IOTRACE
+         |""".stripMargin
     difftestCpp += "#endif // __DIFFSTATE_H__"
     difftestCpp += ""
     streamToFile(difftestCpp, "diffstate.h")

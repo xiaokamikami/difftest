@@ -443,5 +443,8 @@ extern "C" void difftest_squash_enable(int enable);
 extern "C" void set_replay_scope();
 extern "C" void difftest_replay_head(int idx);
 #endif // CONFIG_DIFFTEST_REPLAY
+#ifdef CONFIG_DIFFTEST_IOTRACE
+extern DifftestIOTrace diffIOTraceBuff;
+#endif // CONFIG_DIFFTEST_IOTRACE
 
 #endif

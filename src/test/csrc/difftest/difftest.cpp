@@ -29,11 +29,16 @@
 #endif // CONFIG_DIFFTEST_PERFCNT
 
 Difftest **difftest = NULL;
+DiffIOTrace *difftest_iotrace = NULL;
 
 int difftest_init() {
 #ifdef CONFIG_DIFFTEST_PERFCNT
   difftest_perfcnt_init();
 #endif // CONFIG_DIFFTEST_PERFCNT
+#ifdef CONFIG_DIFFTEST_IOTRACE
+  printf("use difftest io trace\n");
+  difftest_iotrace = new DiffIOTrace();
+#endif // CONFIG_DIFFTEST_IOTRACE
   diffstate_buffer_init();
   difftest = new Difftest *[NUM_CORES];
   for (int i = 0; i < NUM_CORES; i++) {
@@ -68,6 +73,13 @@ int difftest_nstep(int step, bool enable_diff) {
     if (enable_diff) {
       if (difftest_step())
         return STATE_ABORT;
+#ifdef CONFIG_DIFFTEST_IOTRACE
+      difftest_iotrace->clk_count++;
+      if (difftest_iotrace->clk_count == 1024) {
+        difftest_iotrace->clk_count = 0;
+        difftest_iotrace->difftest_IOtrace_dump();
+      }
+#endif // CONFIG_DIFFTEST_IOTRACE
     } else {
       difftest_set_dut();
     }
@@ -116,6 +128,10 @@ void difftest_finish() {
   uint64_t cycleCnt = difftest[0]->get_trap_event()->cycleCnt;
   difftest_perfcnt_finish(cycleCnt);
 #endif // CONFIG_DIFFTEST_PERFCNT
+#ifdef CONFIG_DIFFTEST_IOTRACE
+  delete difftest_iotrace;
+  difftest_iotrace = NULL;
+#endif // CONFIG_DIFFTEST_IOTRACE
   diffstate_buffer_free();
   for (int i = 0; i < NUM_CORES; i++) {
     delete difftest[i];

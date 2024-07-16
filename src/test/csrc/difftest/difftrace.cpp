@@ -1,6 +1,9 @@
 #include "difftrace.h"
 #include <sys/stat.h>
 #include <sys/types.h>
+#ifdef CONFIG_DIFFTEST_IOTRACE
+#include "difftest-dpic.h"
+#endif // CONFIG_DIFFTEST_IOTRACE
 
 DiffTrace::DiffTrace(const char *_trace_name, bool is_read, uint64_t _buffer_size) : is_read(is_read) {
   if (!is_read) {
@@ -76,3 +79,42 @@ bool DiffTrace::trace_file_next() {
   trace_index++;
   return 0;
 }
+
+#ifdef CONFIG_DIFFTEST_IOTRACE
+DifftestIOTrace diffIOTraceBuff;
+DiffIOTrace::DiffIOTrace() {
+  diffIOTraceBuff.traceInfo = (char *)malloc(MAX_IOTRACE_BUFF_SIZE);
+  outputFile.open(difftest_IOtrace_file, std::ios::binary);
+  clk_count = 0;
+  std::cout << "difftest IO trace init" << std::endl;
+  if (!outputFile.is_open()) {
+    std::cerr << "Failed to open file: " << difftest_IOtrace_file << std::endl;
+  }
+  trace_cctx = ZSTD_createCCtx();
+  if (!trace_cctx) {
+    std::cerr << "Failed to create ZSTD_CCtx" << std::endl;
+    return;
+  }
+}
+
+void DiffIOTrace::difftest_IOtrace_dump() {
+  static size_t cLevel = 1; // compression level
+  std::vector<char> outputBuffer(MAX_IOTRACE_BUFF_SIZE);
+  size_t compressedSize = ZSTD_compressCCtx(trace_cctx, outputBuffer.data(), outputBuffer.size(),
+                                            diffIOTraceBuff.traceInfo, diffIOTraceBuff.ptr, cLevel);
+  if (ZSTD_isError(compressedSize)) {
+    std::cerr << "Compression error: " << ZSTD_getErrorName(compressedSize) << std::endl;
+    ZSTD_freeCCtx(trace_cctx);
+    return;
+  }
+
+  diffIOTraceBuff.ptr = 0;
+  outputFile.write(outputBuffer.data(), compressedSize);
+}
+
+void DiffIOTrace::difftest_IOtrace_finish() {
+  ZSTD_freeCCtx(trace_cctx);
+  free(diffIOTraceBuff.traceInfo);
+  outputFile.close();
+}
+#endif // CONFIG_DIFFTEST_IOTRACE
