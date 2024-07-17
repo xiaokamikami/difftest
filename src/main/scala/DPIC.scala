@@ -95,13 +95,12 @@ abstract class DPICBase(config: GatewayConfig) extends ExtModule with HasExtModu
   }
 
   def traceDump: String = {
-    val name = "class_" + dpicFuncName
+    def StructName: String = s"Difftest${desiredName.replace("Difftest", "")}"
     s"""
     |#ifdef CONFIG_DIFFTEST_IOTRACE
-    |  char *struct_str = (char *)malloc(64 * 256);
-    |  memcpy(struct_str, (char *)packet, sizeof(*packet));
-    |  int written = sprintf((diffIOTraceBuff.traceInfo + diffIOTraceBuff.ptr), "%s,%s\\n", "$dpicFuncName", struct_str);
-    |  if(written > 0)
+    |  std::string str = oss.str();
+    |  int written = sprintf((diffIOTraceBuff.traceInfo + diffIOTraceBuff.ptr), "%s:%s\\n", "$dpicFuncName", str.c_str());
+    |  if (written > 0)
     |    diffIOTraceBuff.ptr += written;
     |  else
     |    std::cerr << "Error writing to buffer" << std::endl;
@@ -201,7 +200,10 @@ class DPIC[T <: DifftestBundle](gen: T, config: GatewayConfig) extends DPICBase(
     val body = lhs.zip(rhs.flatten).map { case (l, r) => s"packet->$l = $r;" }
     val packetDecl = Seq(getPacketDecl(gen, "io_", config))
     val validAssign = if (!gen.bits.hasValid || gen.isFlatten) Seq() else Seq("packet->valid = true;")
-    packetDecl ++ validAssign ++ body
+    val str = Seq("std::ostringstream oss;")
+    val ioTraceb = lhs.zip(rhs.flatten).map { case (l, r) => s"oss << std::hex << packet->$l << \",\";" }
+    val ioTracec = Seq("oss << std::hex << io_coreid;")
+    packetDecl ++ validAssign ++ body ++ str ++ ioTraceb ++ ioTracec
   }
 
   setInline(s"$desiredName.v", moduleBody)
@@ -366,6 +368,10 @@ object DPIC {
     interfaceCpp += "#ifdef CONFIG_DIFFTEST_PERFCNT"
     interfaceCpp += "#include \"perf.h\""
     interfaceCpp += "#endif // CONFIG_DIFFTEST_PERFCNT"
+    interfaceCpp += "#ifdef CONFIG_DIFFTEST_IOTRACE"
+    interfaceCpp += "#include <sstream>"
+    interfaceCpp += "#include <iomanip>"
+    interfaceCpp += "#endif // CONFIG_DIFFTEST_IOTRACE"
     interfaceCpp += ""
     interfaceCpp +=
       """
@@ -461,6 +467,21 @@ object DPIC {
          |}
          |#endif // CONFIG_DIFFTEST_PERFCNT
          |""".stripMargin
+    // interfaceCpp +=
+    //   s"""
+    //      |#ifdef CONFIG_DIFFTEST_IOTRACE
+    //      |char *structtoHex(const void *data, size_t size, char *buff) {
+    //      |  //unsigned char *charData = (unsigned char *)data;
+    //      |  unsigned char* byteData = reinterpret_cast<unsigned char*>(data);
+    //      |  std::ostringstream oss;
+    //      |  for (size_t i = 0; i < size; ++i) {
+    //      |    str << std::hex << *(byteData + i) << ',';
+    //      |  }
+    //      |  oss << std::endl;
+    //      |  return buff;
+    //      |}
+    //      |#endif // CONFIG_DIFFTEST_IOTRACE
+    //      |""".stripMargin
     interfaceCpp += interfaces.map(_._3).mkString("")
     interfaceCpp += ""
     interfaceCpp += "#endif // CONFIG_NO_DIFFTEST"
