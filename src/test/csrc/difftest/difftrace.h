@@ -3,13 +3,13 @@
 
 #include "common.h"
 #ifdef CONFIG_DIFFTEST_IOTRACE
-#include <zstd.h>
+#include <cstdint>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
-#include <vector>
-#include <cstdint>
 #include <sys/stat.h>
-#include <cstdlib>
+#include <vector>
+#include <zstd.h>
 #endif // CONFIG_DIFFTEST_IOTRACE
 
 class DiffTrace {
@@ -39,14 +39,14 @@ private:
 
 #ifdef CONFIG_DIFFTEST_IOTRACE
 typedef struct {
- char *traceInfo;
- uint64_t ptr;
+  char *traceInfo;
+  uint64_t ptr;
 } DifftestIOTrace;
 
 class DiffIOTrace {
 public:
   const char *difftest_IOtrace_file = "./difftest/iotrace.zstd";
-  int clk_count;
+  uint64_t step_count;
 
   DiffIOTrace();
   ~DiffIOTrace() {

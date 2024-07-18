@@ -29,7 +29,9 @@
 #endif // CONFIG_DIFFTEST_PERFCNT
 
 Difftest **difftest = NULL;
+#ifdef CONFIG_DIFFTEST_IOTRACE
 DiffIOTrace *difftest_iotrace = NULL;
+#endif // CONFIG_DIFFTEST_IOTRACE
 
 int difftest_init() {
 #ifdef CONFIG_DIFFTEST_PERFCNT
@@ -74,11 +76,10 @@ int difftest_nstep(int step, bool enable_diff) {
       if (difftest_step())
         return STATE_ABORT;
 #ifdef CONFIG_DIFFTEST_IOTRACE
-      difftest_iotrace->clk_count++;
-      if (difftest_iotrace->clk_count == 1024) {
-        difftest_iotrace->clk_count = 0;
-        difftest_iotrace->difftest_IOtrace_dump();
-      }
+      difftest_iotrace->step_count++;
+      diffIOTraceBuff.ptr +=
+          sprintf((diffIOTraceBuff.traceInfo + diffIOTraceBuff.ptr), "stepend:%ld.\n", difftest_iotrace->step_count);
+      difftest_iotrace->difftest_IOtrace_dump();
 #endif // CONFIG_DIFFTEST_IOTRACE
     } else {
       difftest_set_dut();

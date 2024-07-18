@@ -38,6 +38,7 @@ case class GatewayConfig(
   hasInternalStep: Boolean = false,
   isNonBlock: Boolean = false,
   hasBuiltInPerf: Boolean = false,
+  ioTrace: Boolean = false,
 ) {
   def dutZoneSize: Int = if (hasDutZone) 2 else 1
   def dutZoneWidth: Int = log2Ceil(dutZoneSize)
