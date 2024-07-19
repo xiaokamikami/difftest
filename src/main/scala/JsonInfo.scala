@@ -2,7 +2,7 @@ package difftest.json
 
 import java.io._
 import scala.collection.mutable
-import ujson.True
+import ujson._
 import upickle.default
 import scala.io.Source
 
@@ -10,14 +10,15 @@ object DataCollector {
   private val data: mutable.Map[String, mutable.Map[String, Any]] = mutable.Map()
 
   def update(className: String, params: Map[String, Any], count: Boolean): Unit = {
-    val currentData = data.getOrElseUpdate(className, mutable.Map("exception_count" -> 0))
-    if (count) {
-      val currentCount = currentData("exception_count").asInstanceOf[Int]
-      currentData("exception_count") = currentCount + 1
-    }
-
-    params.foreach { case (k, v) =>
-      currentData(k) = v
+    if (dumpEnableJson) {
+      val currentData = data.getOrElseUpdate(className, mutable.Map("exception_count" -> 0))
+      if (count) {
+        val currentCount = currentData("exception_count").asInstanceOf[Int]
+        currentData("exception_count") = currentCount + 1
+      }
+      params.foreach { case (k, v) =>
+        currentData(k) = v
+      }
     }
   }
 
@@ -43,35 +44,15 @@ object DataCollector {
   }
 
 // Load json file
-  def readFromFile(filePath: String): Unit = {
+  def readFromFile(filePath: String): mutable.Map[String, mutable.Map[String, Any]] = {
     val source = Source.fromFile(filePath)
-    val jsonString =
-      try source.mkString
-      finally source.close()
+    val jsonString = try source.mkString finally source.close()
+    val parsedData = ujson.read(jsonString).obj
 
-    // A simple JSON parser
-    val jsonPattern = """\s*"(\w+)"\s*:\s*(\d+|".*?")\s*""".r
-    val classPattern = """\s*"(\w+)"\s*:\s*\{\s*(.*?)\s*\}\s*""".r
-
-    classPattern.findAllMatchIn(jsonString).foreach { classMatch =>
-      val className = classMatch.group(1)
-      val paramsString = classMatch.group(2)
-
-      val params = mutable.Map[String, Any]()
-      jsonPattern.findAllMatchIn(paramsString).foreach { paramMatch =>
-        val key = paramMatch.group(1)
-        val value = paramMatch.group(2)
-        val parsedValue = if (value.startsWith("\"")) value.stripPrefix("\"").stripSuffix("\"") else value.toInt
-        params(key) = parsedValue
-      }
-
-      data(className) = params
-    }
-  }
-
-// Find json key
-  def query(className: String, key: String): Option[Any] = {
-    data.get(className).flatMap(_.get(key))
+    mutable.Map(parsedData.map { case (className, classParams) =>
+      val paramsMap = mutable.Map(classParams.obj.map { case (k, v) => k -> v.value }.toSeq: _*)
+      className -> paramsMap
+    }.toSeq: _*)
   }
 
   var dumpEnableJson = false
