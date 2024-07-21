@@ -31,6 +31,7 @@
 Difftest **difftest = NULL;
 #ifdef CONFIG_DIFFTEST_IOTRACE
 DiffIOTrace *difftest_iotrace = NULL;
+void difftest_iotrace_dump();
 #endif // CONFIG_DIFFTEST_IOTRACE
 
 int difftest_init() {
@@ -73,14 +74,11 @@ int difftest_nstep(int step, bool enable_diff) {
   difftest_switch_zone();
   for (int i = 0; i < step; i++) {
     if (enable_diff) {
+#ifdef CONFIG_DIFFTEST_IOTRACE
+      difftest_iotrace_dump();
+#endif // CONFIG_DIFFTEST_IOTRACE
       if (difftest_step())
         return STATE_ABORT;
-#ifdef CONFIG_DIFFTEST_IOTRACE
-      difftest_iotrace->step_count++;
-      diffIOTraceBuff.ptr +=
-          sprintf((diffIOTraceBuff.traceInfo + diffIOTraceBuff.ptr), "stepend:%ld.\n", difftest_iotrace->step_count);
-      difftest_iotrace->difftest_IOtrace_dump();
-#endif // CONFIG_DIFFTEST_IOTRACE
     } else {
       difftest_set_dut();
     }
@@ -90,6 +88,22 @@ int difftest_nstep(int step, bool enable_diff) {
   }
   return STATE_RUNNING;
 }
+
+#ifdef CONFIG_DIFFTEST_IOTRACE
+void difftest_iotrace_dump() {
+  difftest_iotrace->compress_count++;
+  difftest_iotrace->step_count++;
+  diffIOTraceBuff.ptr +=
+  sprintf((diffIOTraceBuff.traceInfo + diffIOTraceBuff.ptr), "StepEnd:%ld.\n", difftest_iotrace->step_count);
+  if (difftest_iotrace->compress_count == MAX_IOTRACE_COUNT) {
+    if (diffIOTraceBuff.ptr > MAX_IOTRACE_BUFF_SIZE) {
+      std::cout << "IOtrace buffer the requested memory size limit was exceeded" << std::endl;
+    }
+    difftest_iotrace->difftest_IOtrace_dump();
+    difftest_iotrace->compress_count = 0;
+  }
+}
+#endif // CONFIG_DIFFTEST_IOTRACE
 
 void difftest_switch_zone() {
   for (int i = 0; i < NUM_CORES; i++) {

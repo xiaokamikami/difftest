@@ -85,7 +85,7 @@ DifftestIOTrace diffIOTraceBuff;
 DiffIOTrace::DiffIOTrace() {
   diffIOTraceBuff.traceInfo = (char *)malloc(MAX_IOTRACE_BUFF_SIZE);
   outputFile.open(difftest_IOtrace_file, std::ios::binary);
-  clk_count = 0;
+  compress_count = 0;
   std::cout << "difftest IO trace init" << std::endl;
   if (!outputFile.is_open()) {
     std::cerr << "Failed to open file: " << difftest_IOtrace_file << std::endl;

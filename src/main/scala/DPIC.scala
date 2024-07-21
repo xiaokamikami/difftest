@@ -100,15 +100,12 @@ abstract class DPICBase(config: GatewayConfig) extends ExtModule with HasExtModu
       |""".stripMargin
     }
     else {
-      def StructName: String = s"Difftest${desiredName.replace("Difftest", "")}"
+      def StructName: String = s"${desiredName.replace("Difftest", "")}"
       s"""
       |#ifdef CONFIG_DIFFTEST_IOTRACE
       |  std::string str = oss.str();
-      |  int written = sprintf((diffIOTraceBuff.traceInfo + diffIOTraceBuff.ptr), "%s:%s\\n", "$dpicFuncName", str.c_str());
-      |  if (written > 0)
-      |    diffIOTraceBuff.ptr += written;
-      |  else
-      |    std::cerr << "Error writing to buffer" << std::endl;
+      |  diffIOTraceBuff.ptr += sprintf((diffIOTraceBuff.traceInfo + diffIOTraceBuff.ptr), "%s:%s;", "$StructName", str.c_str());
+      |  oss.str("");
       |#endif
       |""".stripMargin
     }
@@ -206,10 +203,12 @@ class DPIC[T <: DifftestBundle](gen: T, config: GatewayConfig) extends DPICBase(
     val body = lhs.zip(rhs.flatten).map { case (l, r) => s"packet->$l = $r;" }
     val packetDecl = Seq(getPacketDecl(gen, "io_", config))
     val validAssign = if (!gen.bits.hasValid || gen.isFlatten) Seq() else Seq("packet->valid = true;")
-    val str = if (!config.ioTrace) Seq() else Seq("std::ostringstream oss;")
-    val ioTraceb = if (!config.ioTrace) Seq() else lhs.zip(rhs.flatten).map { case (l, r) => s"oss << std::hex << packet->$l << \",\";" }
-    val ioTracec = if (!config.ioTrace) Seq() else Seq("oss << std::hex << io_coreid;")
-    packetDecl ++ validAssign ++ body ++ str ++ ioTraceb ++ ioTracec
+    val iotraceBase = if (!config.ioTrace) Seq() else Seq("static std::ostringstream oss;")
+    val iotraceIo = if (!config.ioTrace) Seq() else
+      lhs.zip(rhs.flatten).map { case (l, r) => s"<< (uint64_t)$r << \",\""}
+    val ioTraceEnd = if (!config.ioTrace) Seq() else Seq("<< (uint64_t)io_coreid;")
+    val ioTrace = if (!config.ioTrace) Seq() else { Seq("oss << std::hex")}
+    packetDecl ++ validAssign ++ body ++ iotraceBase ++ ioTrace ++ iotraceIo ++ ioTraceEnd
   }
 
   setInline(s"$desiredName.v", moduleBody)

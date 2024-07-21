@@ -47,6 +47,7 @@ class DiffIOTrace {
 public:
   const char *difftest_IOtrace_file = "./difftest/iotrace.zstd";
   uint64_t step_count;
+  int compress_count;
 
   DiffIOTrace();
   ~DiffIOTrace() {

@@ -417,8 +417,8 @@ object DifftestModule {
       s"""
       |#define CONFIG_DIFFTEST_IOTRACE
       |#ifdef CONFIG_DIFFTEST_IOTRACE
-      |#define MAX_IOTRACE_COUNT 1024
-      |#define MAX_IOTRACE_BUFF_SIZE (NUM_CORES * MAX_IOTRACE_COUNT * 50 * 1024)
+      |#define MAX_IOTRACE_COUNT 2048
+      |#define MAX_IOTRACE_BUFF_SIZE (NUM_CORES * MAX_IOTRACE_COUNT * 64 * 300)
       |#endif // CONFIG_DIFFTEST_IOTRACE
       |""".stripMargin
     }
