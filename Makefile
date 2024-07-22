@@ -208,6 +208,7 @@ endif
 include verilator.mk
 include vcs.mk
 include palladium.mk
+include simdifftest.mk
 include libso.mk
 
 clean: vcs-clean pldm-clean
