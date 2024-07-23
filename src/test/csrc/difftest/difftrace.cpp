@@ -5,6 +5,7 @@
 #include "difftest-dpic.h"
 #endif // CONFIG_DIFFTEST_IOTRACE
 
+#ifndef CONFIG_DIFFTEST_IOTRACE
 DiffTrace::DiffTrace(const char *_trace_name, bool is_read, uint64_t _buffer_size) : is_read(is_read) {
   if (!is_read) {
     buffer_size = _buffer_size;
@@ -79,6 +80,7 @@ bool DiffTrace::trace_file_next() {
   trace_index++;
   return 0;
 }
+#endif // CONFIG_DIFFTEST_IOTRACE
 
 #ifdef CONFIG_DIFFTEST_IOTRACE
 DifftestIOTrace diffIOTraceBuff;

@@ -28,6 +28,10 @@
 static std::queue<char> traceQueue;
 static DiffTestState cores[NUM_CORES];
 
+void simdifftest_main();
+int pars_iotrace(std::queue<char> &traceQueue);
+int dpic_funs_case(char *funs_name);
+
 int main() {
   simdifftest_main();
   return 0;
@@ -35,9 +39,17 @@ int main() {
 
 void simdifftest_main() {
   dcompressIOTraceInit();
-
-  while (decompressIOTraceDCTX(std::queue<char> &traceQueue) == 0) {
-    pars_iotrace(traceQueue);
+  
+  while (1) {
+    int result = decompressIOTraceDCTX(traceQueue);
+    if (result == 1) {
+      pars_iotrace(traceQueue);
+    } else if (result == 2) {
+      break;
+    } else if (result == 3){
+      pars_iotrace(traceQueue);
+      break;
+    }
   }
 
   dcompressIOTraceFinsh();
@@ -49,20 +61,38 @@ int pars_iotrace(std::queue<char> &traceQueue) {
   char *trace = new char[MAX_IOTRACE_BUFF_SIZE / MAX_IOTRACE_COUNT];
   int end_step = 0;
 
-  while (end == 0) { // difftest state
-    int strat_io = 0;
-    char str[MAX_CLASS_INFO_SIZE] = {};
-    char class_name[32];
+  while (end_step == 0) { // difftest state
+    char class_info[MAX_CLASS_INFO_SIZE] = {};
+    char class_name[32] = {};
+    int name_size = 0;
     for (size_t i = 0; i < MAX_CLASS_INFO_SIZE; i++) {
+      if (end_step == 1)
+        break;
       char buff = traceQueue.front();
+      traceQueue.pop();
+      //std::cout << "get buff" << buff << std::endl;
       if (buff == ':') {
-        strat_io = 1;
-        strncpy(class_name, str, i);
-        printf("get class name %s\n", class_name);
+      //printf("get class name %s\n", class_name);
+      memset(class_name, 0, sizeof(class_name));
+      name_size = 0;
+        for (size_t i = 0; i < MAX_CLASS_INFO_SIZE; i++) {
+          char buff2 = traceQueue.front();
+          traceQueue.pop();
+          if (buff2 == ';') {
+            //printf("Read through the data of class\n");
+            break;
+          } else if (buff2 == '.') {
+            //printf("Read through a class of data\n");
+            end_step = 1;
+            break;
+          }
+          class_info[i] = buff2;
+        }
       } else {
-        
+        class_name[name_size] = buff;
+        name_size ++;
       }
-      str[i] = buff;
+
     }
   }
 
