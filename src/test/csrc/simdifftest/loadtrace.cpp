@@ -102,6 +102,10 @@ int decompressIOTraceDCTX(std::queue<char> &traceQueue) {
     printf("reset input pos \n");
     // 输出当前文件指针位置
     std::streampos currentPos = traceFile.tellg();
+    if(currentPos == -1) {
+      std::cout << "Decompress parse to the end of the file" << std::endl;
+      return 2;
+    }
     std::cout << "Current input file position: " << currentPos << std::endl;
   } else if (input.size == 0){
     std::cout << "Decompress parse to the end of the file" << std::endl;
