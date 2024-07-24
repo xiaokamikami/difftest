@@ -15,23 +15,22 @@
 # See the Mulan PSL v2 for more details.
 #***************************************************************************************
 CXX = g++
-CXXFLAGS = -std=c++11 -w -pedantic -O3
-LDFLAGS = -lz -lzstd -ldl
+CXXFLAGS = -std=c++11 -W -pedantic -O3
+LDFLAGS = -lz -lzstd -ldl -lsqlite3
 
 SIMDIFF_CSRC_DIRS = \
     $(abspath ./src/test/csrc/simdifftest/) \
-    $(abspath ./src/test/csrc/difftest/) \
-    $(abspath ./src/test/csrc/common/) \
     $(abspath ./config/) \
-    $(abspath ../build/generated-src/) \
-    $(abspath ../build/)
+    $(abspath ../build/generated-src/)
 
 SIMDIFF_BUILD_DIR = $(abspath ../build/simv-compile)
 
 SIMDIFF_CXXFILES = $(shell find $(SIMDIFF_CSRC_DIRS) -name "*.cpp")
+SIMDIFF_CXXFILES += ./src/test/csrc/difftest/difftrace.cpp
 SIMDIFF_INCFLAGS = $(foreach dir,$(SIMDIFF_CSRC_DIRS),-I$(dir))
+SIMDIFF_INCFLAGS += ./src/test/csrc/difftest/difftrace.h
 
-CXXFLAGS += +DCONFIG_SIMDIFFTEST $(SIM_CXXFLAGS)
+CXXFLAGS += -DCONFIG_SIMDIFFTEST $(subst \\\",\", $(SIM_CXXFLAGS)) 
 
 OBJS = $(patsubst $(SIMDIFF_CXXFILES)%.cpp,$(SIMDIFF_BUILD_DIR)%.o,$(SIMDIFF_CXXFILES))  
 
