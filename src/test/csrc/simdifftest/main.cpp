@@ -82,37 +82,33 @@ int pars_iotrace(std::queue<char> &traceQueue) {
   char class_info[MAX_CLASS_INFO_SIZE] = {};
   int end_step = 0;
   int name_str_size = 0;
+  int class_count = 0;
   while (end_step == 0) {
-    int class_count = 0;
     for (size_t i = 0; i < MAX_CLASS_SIZE; i++) {
       if (end_step == 1) {
-        exit(0);
         break;
-      }
+      }                   
       char buff = traceQueue.front();
       traceQueue.pop();
-      //std::cout << "get buff" << buff << std::endl;
       if (buff == ':') {
-        printf("get class name %s\n", class_name);
+        //printf("get class name %s\n", class_name);
         for (size_t i = 0; i < MAX_CLASS_INFO_SIZE; i++) {
           char buff2 = traceQueue.front();
           traceQueue.pop();
           if (buff2 == ';' || buff2 == '.') {
             // push info to sql.db
-            if (class_count == 0) {
-              //sqlbase->insertBatch(class_name, sizeof(class_name), class_info, sizeof(class_info));  
-            } else {
-              //sqlbase->alterTable(class_count, class_name, sizeof(class_name), class_info, sizeof(class_info));
-            }
-            sqlbase->insertBatch(class_name, sizeof(class_name), class_info, sizeof(class_info));  
-            if (buff2 == '.') {
+            if (strcmp(class_name, "StepEnd") == 0) {
               end_step = 1;
-              step_count ++;
               class_count = 0;
+              sqlbase->update_head(++step_count);
+            } else if (class_count == 0) {
+              //printf("insert %d\n", class_count);
+              sqlbase->insert_batch(class_name, sizeof(class_name), class_info, sizeof(class_info)); 
             } else {
-              class_count ++;
+              //printf("altertable %d\n", class_count);
+              sqlbase->alter_table(class_count, class_name, sizeof(class_name), class_info, sizeof(class_info));
             }
-            //printf("Read through the data of class %s\n", class_info);
+            class_count ++;
             memset(class_name, 0, MAX_CLASS_NAME_SIZE);
             memset(class_info, 0, MAX_CLASS_INFO_SIZE);
             name_str_size = 0;
@@ -135,7 +131,7 @@ int dpic_funs_case(char *funs_name) {
 
 int sql_init(const char *file_path) {
   sqlbase = new IoTraceDb;
-  sqlbase->createData(file_path);
+  sqlbase->create_data(file_path);
 
   // delete sqlbase;
   // sqlbase = nullptr;

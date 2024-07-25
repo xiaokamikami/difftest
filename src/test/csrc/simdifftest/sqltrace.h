@@ -25,17 +25,23 @@ public:
 
     }
     // Create the database and tables
-    void createData(const char *file_path);
-    // Insert data
-    void alterTable(int size, const char *name, const int name_len, const char *value_str, const int value_len);
-    // Update data (update the value of the NTH column of the id record)
-    void updateData(const int id,const int n);
+    void create_data(const char *file_path);
+    // Insert data of the column of the id
+    void alter_table(int size, const char *name, const int name_len, const char *value_str, const int value_len);
     // Display open things, batch insert data
-    void insertBatch(const char *name, const int name_len, const char *value_str, const int value_len);
+    void insert_batch(const char *name, const int name_len, const char *value_str, const int value_len);
     // Closing the database
     void close() {
         sqlite3_close(conn);    
         return;
+    }
+
+    void faile_exit(char *cause);
+    // Find ID the exists
+    int id_exists(int id);
+    // Update head value
+    void update_head(int value) {
+        head = value;
     }
     // Clear the database tables
     void drop();
@@ -43,8 +49,32 @@ public:
 private:
     sqlite3 *conn = nullptr;
     int rc;
-    int count = 10;
+    int head = 0;
 };
 
-
 int sql_init(char *file_path);
+
+enum DIFFSTATE_PERF {
+  RefillEvent,
+  L1TLBEvent,
+  InstrCommit,
+  LoadEvent,
+  TrapEvent,
+  ArchIntRegState,
+  ArchFpRegState,
+  ArchVecRegState,
+  ArchEvent,
+  CSRState,
+  HCSRState,
+  DebugMode,
+  VecCSRState,
+  IntWriteback,
+  FpWriteback,
+  VecWriteback,
+  L2TLBEvent,
+  AtomicEvent,
+  LrScEvent,
+  SbufferEvent,
+  StoreEvent,
+  DIFFSTATE_PERF_NUM
+};
