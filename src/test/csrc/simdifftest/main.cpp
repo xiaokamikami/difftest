@@ -20,6 +20,11 @@
 #include <vector>
 #include <zstd.h>
 
+#define PROF_SDL
+#ifdef PROF_SDL
+#include <chrono>
+#endif // PROF_SDL
+
 #include "difftest-dpic.h"
 #include "difftest.h"
 #include "difftrace.h"
@@ -62,12 +67,6 @@ void simdifftest_main() {
       //std::cout << "queue size " << traceQueue.size() << std::endl;
       //exit(0);
     } else if (result == 2) {
-      //while(traceQueue.size()) {
-      //  pars_iotrace(traceQueue);
-      //}
-      break;
-    } else if (result == 3){
-      pars_iotrace(traceQueue);
       break;
     }
   }
@@ -76,16 +75,31 @@ void simdifftest_main() {
 }
 
 int pars_iotrace(std::queue<char> &traceQueue) {
+#ifdef PROF_SDL
+  static int sdl_prof_count = 0;
+  static double prof_tims = 0;
+  auto start = std::chrono::high_resolution_clock::now();
+#endif // PROF_SDL
   static uint64_t step_count = 0;
-
-  char class_name[MAX_CLASS_NAME_SIZE] = {};
-  char class_info[MAX_CLASS_INFO_SIZE] = {};
+  static char class_name[MAX_CLASS_NAME_SIZE] = {};
+  static char class_info[MAX_CLASS_INFO_SIZE] = {};
   int end_step = 0;
   int name_str_size = 0;
   int class_count = 0;
+
   while (end_step == 0) {
     for (size_t i = 0; i < MAX_CLASS_SIZE; i++) {
       if (end_step == 1) {
+#ifdef PROF_SDL
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = end - start;
+        prof_tims += elapsed.count();
+        sdl_prof_count ++;
+        if (sdl_prof_count == 100) {
+          std::cout << "trace String parsing Elapsed time: " << prof_tims / 100.0 << "S" << std::endl;
+          exit(0);
+        }
+#endif // PROF_SDL
         break;
       }                   
       char buff = traceQueue.front();
@@ -97,7 +111,7 @@ int pars_iotrace(std::queue<char> &traceQueue) {
           traceQueue.pop();
           if (buff2 == ';' || buff2 == '.') {
             // push info to sql.db
-            if (strcmp(class_name, "StepEnd") == 0) {
+            if (buff2 == '.') {
               end_step = 1;
               class_count = 0;
               sqlbase->update_head(++step_count);
