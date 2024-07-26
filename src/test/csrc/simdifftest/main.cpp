@@ -36,6 +36,7 @@
 #define MAX_CLASS_SIZE 22
 #define MAX_CLASS_NAME_SIZE 20
 #define USE_IOTRACE_SQLLITE
+#define USE_THREAD
 
 const char *sql_file_path = "./iotrace.db";
 IoTraceDb *sqlbase = NULL;
@@ -58,21 +59,48 @@ int main() {
 
 void simdifftest_main() {
   dcompressIOTraceInit();
-
+  std::thread dbThread;
   while (1) {
+#ifdef PROF_SDL
+    static int sdl_prof_count = 0;
+    static double prof_tims = 0;
+    auto start = std::chrono::high_resolution_clock::now();
+#endif // PROF_SDL
     int result = decompressIOTraceDCTX(traceQueue);
     if (result == 1) {
+      sqlbase->sqlite_stmt_begin();
       while (traceQueue.size() > MAX_CLASS_INFO_SIZE * MAX_CLASS_SIZE) {
         pars_iotrace(traceQueue);
       }
-      //std::cout << "queue size " << traceQueue.size() << std::endl;
-      //exit(0);
+#ifdef USE_THREAD
+      if (dbThread.joinable()) {
+        dbThread.join();
+      }
+      dbThread = std::thread(&IoTraceDb::sqlite_stmt_exec, sqlbase);
+#else
+      sqlbase->sqlite_stmt_exec();
+#endif // USE_THREAD
     } else if (result == 2) {
       break;
     }
+#ifdef PROF_SDL
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end - start;
+    prof_tims += elapsed.count();
+    sdl_prof_count ++;
+    if (sdl_prof_count == 10) {
+      std::cout << "Time taken by a trace parse to dump the database: " << prof_tims / 10.0 << "S" << std::endl;
+      sdl_prof_count = 0;
+      prof_tims = 0;
+    }
+#endif // PROF_SDL
   }
-
+#ifdef USE_THREAD
+  if (dbThread.joinable())
+    dbThread.join();
+#endif // USE_THREAD
   dcompressIOTraceFinsh();
+  delete sqlbase;
 }
 
 void sql_exec() {
@@ -89,7 +117,6 @@ int pars_iotrace(std::queue<char> &traceQueue) {
   static char class_name[MAX_CLASS_NAME_SIZE] = {};
   static char class_info[MAX_CLASS_INFO_SIZE] = {};
 
-  std::thread dbThread;
   int end_step = 0;
   int name_str_size = 0;
   int class_count = 0;
@@ -101,9 +128,10 @@ int pars_iotrace(std::queue<char> &traceQueue) {
         std::chrono::duration<double> elapsed = end - start;
         prof_tims += elapsed.count();
         sdl_prof_count ++;
-        if (sdl_prof_count == 100) {
-          std::cout << "trace String parsing Elapsed time: " << prof_tims / 100.0 << "S" << std::endl;
-          exit(0);
+        if (sdl_prof_count == 500) {
+          std::cout << "trace String parsing Elapsed time: " << prof_tims / 500.0 << "S" << std::endl;
+          sdl_prof_count = 0;
+          prof_tims = 0;
         }
 #endif // PROF_SDL
         break;
@@ -121,16 +149,9 @@ int pars_iotrace(std::queue<char> &traceQueue) {
               end_step = 1;
               class_count = 0;
               sqlbase->update_head(++step_count);
-              sqlbase->sqlite_stmt_exec();
-              //dbThread = std::thread(&IoTraceDb::sqlite_stmt_exec, sqlbase);
             } else if (class_count == 0) {
-              //printf("insert %d\n", class_count);
-              // if (dbThread.joinable())
-              //   dbThread.join();
-              sqlbase->sqlite_stmt_begin();
               sqlbase->insert_batch(class_name, sizeof(class_name), class_info, sizeof(class_info));
             } else {
-              //printf("altertable %d\n", class_count);
               sqlbase->alter_table(class_count, class_name, sizeof(class_name), class_info, sizeof(class_info));
             }
             class_count ++;
@@ -158,8 +179,6 @@ int sql_init(const char *file_path) {
   sqlbase = new IoTraceDb;
   sqlbase->create_data(file_path);
 
-  // delete sqlbase;
-  // sqlbase = nullptr;
   return 0;
 }
 

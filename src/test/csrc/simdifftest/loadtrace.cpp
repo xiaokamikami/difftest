@@ -16,7 +16,7 @@
 
 //#ifdef CONFIG_SIMDIFFTEST
 #include "loadtrace.h"
-
+//#define IOTRACE_DEBUG
 static std::string tracePath = "./iotrace.zstd";
 static std::ifstream traceFile;
 static ZSTD_DCtx* dctx = NULL;
@@ -58,7 +58,7 @@ int decompressIOTraceDCTX(std::queue<char> &traceQueue) {
     traceFile.read(inputBuffer.data(), inbufferSize);
     input.size = traceFile.gcount();
     input.pos = 0;
-    printf("reset input pos \n");
+
     // Outputs the current file pointer location
     std::streampos currentPos = traceFile.tellg();
     if(currentPos == -1) {
@@ -72,34 +72,37 @@ int decompressIOTraceDCTX(std::queue<char> &traceQueue) {
   } else {
     input.size = input.size;
     input.pos = input.pos;
+#ifdef IOTRACE_DEBUG
     printf("input %ld %ld\n",input.size , input.pos);
+#endif // IOTRACE_DEBUG
   }
-
-  std::cout << "readBytes " << input.size << " inbuffer size " << inputBuffer.size() << " outbuffer size " << outputBuffer.size() << std::endl;
 
   // Decompress the data
   size_t ret = ZSTD_decompressStream(dctx, &output, &input);
+#ifdef IOTRACE_DEBUG
   if (output.pos == output.size) {
     std::cout << "there might be some data left within internal buffers" << std::endl;
   }
   if (input.pos == input.size) {
     std::cout << "once a block has been processed, more data is needed" << std::endl;
   }
-
   std::cout << "Dcompress output.pos: " << output.pos << " input.pos: " << input.pos << " ret: " << ret << std::endl;
+
   if (ZSTD_isError(ret)) {
     std::cerr << "Decompression error: " << ZSTD_getErrorName(ret) << std::endl;
     dcompressIOTraceFinsh();
     exit(0);
   }
 
+  if (ret == 0) {
+    std::cout << "Decompress parse to the end of the block" << std::endl;
+  }
+#endif // IOTRACE_DEBUG
+
   for (size_t i = 0; i < output.pos; ++i) {
     traceQueue.push(outputBuffer[i]);
   }
 
-  if (ret == 0) {
-    std::cout << "Decompress parse to the end of the block" << std::endl;
-  }
   return 1;
 }
 
