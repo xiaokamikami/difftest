@@ -19,8 +19,9 @@
 #include <fstream>
 #include <vector>
 #include <zstd.h>
+#include <thread>
 
-#define PROF_SDL
+//#define PROF_SDL
 #ifdef PROF_SDL
 #include <chrono>
 #endif // PROF_SDL
@@ -33,7 +34,7 @@
 
 #define MAX_CLASS_INFO_SIZE 64 * 130 * NUM_CORES
 #define MAX_CLASS_SIZE 22
-#define MAX_CLASS_NAME_SIZE 32
+#define MAX_CLASS_NAME_SIZE 20
 #define USE_IOTRACE_SQLLITE
 
 const char *sql_file_path = "./iotrace.db";
@@ -74,6 +75,10 @@ void simdifftest_main() {
   dcompressIOTraceFinsh();
 }
 
+void sql_exec() {
+  sqlbase->sqlite_stmt_exec();
+}
+
 int pars_iotrace(std::queue<char> &traceQueue) {
 #ifdef PROF_SDL
   static int sdl_prof_count = 0;
@@ -83,10 +88,11 @@ int pars_iotrace(std::queue<char> &traceQueue) {
   static uint64_t step_count = 0;
   static char class_name[MAX_CLASS_NAME_SIZE] = {};
   static char class_info[MAX_CLASS_INFO_SIZE] = {};
+
+  std::thread dbThread;
   int end_step = 0;
   int name_str_size = 0;
   int class_count = 0;
-
   while (end_step == 0) {
     for (size_t i = 0; i < MAX_CLASS_SIZE; i++) {
       if (end_step == 1) {
@@ -115,9 +121,14 @@ int pars_iotrace(std::queue<char> &traceQueue) {
               end_step = 1;
               class_count = 0;
               sqlbase->update_head(++step_count);
+              sqlbase->sqlite_stmt_exec();
+              //dbThread = std::thread(&IoTraceDb::sqlite_stmt_exec, sqlbase);
             } else if (class_count == 0) {
               //printf("insert %d\n", class_count);
-              sqlbase->insert_batch(class_name, sizeof(class_name), class_info, sizeof(class_info)); 
+              // if (dbThread.joinable())
+              //   dbThread.join();
+              sqlbase->sqlite_stmt_begin();
+              sqlbase->insert_batch(class_name, sizeof(class_name), class_info, sizeof(class_info));
             } else {
               //printf("altertable %d\n", class_count);
               sqlbase->alter_table(class_count, class_name, sizeof(class_name), class_info, sizeof(class_info));

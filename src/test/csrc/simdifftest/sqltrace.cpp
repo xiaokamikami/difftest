@@ -42,7 +42,7 @@ void IoTraceDb::drop() {
 void IoTraceDb::alter_table(int size, const char *name, const int name_len, const char *value_str, const int value_len) {
   sqlite3_stmt *stmt;
 
-  char update_sql[128];
+  char update_sql[80];
   sprintf(update_sql, "UPDATE iotrace SET %s = ? WHERE ID = %d;", name, head);
   if (sqlite3_prepare_v2(conn, update_sql, -1, &stmt, NULL) != SQLITE_OK) {
     fprintf(stderr, "Failed to prepare statement: %s\n", sqlite3_errmsg(conn));
@@ -83,24 +83,7 @@ int IoTraceDb::id_exists(int id) {
 }
 
 void IoTraceDb::insert_batch(const char *name, const int name_len, const char *value_str, const int value_len) {
-  // Start a transaction
-  static const char *begin = "begin transaction";
-  sqlite3_stmt *stmt = nullptr;
-  if (sqlite3_prepare_v2(conn, begin, strlen(begin), &stmt, nullptr) != SQLITE_OK) {
-    close();
-    cout << "Precompile thing failed" << endl;
-    return;    
-  }
-  if (sqlite3_step(stmt) != SQLITE_DONE) {
-    close();
-    cout << "Failure to execute things" << endl;
-    return;
-  }
-  sqlite3_finalize(stmt);
-
-  // Insert data based on bound variables
-  //const char *insert = "insert into iotrace values(?)";
-  char insert[128];
+  char insert[80];
   sprintf(insert, "insert into iotrace (ID, %s) values(?,?)", name);
   sqlite3_stmt *stmt2 = nullptr;
   if (sqlite3_prepare_v2(conn, insert, strlen(insert), &stmt2, nullptr) != SQLITE_OK) {
@@ -121,31 +104,14 @@ void IoTraceDb::insert_batch(const char *name, const int name_len, const char *v
     return;
   }
   sqlite3_reset(stmt2);
-  //cout << "Insert succeed!" <<endl;
-
   sqlite3_finalize(stmt2);
-
-  //提交事务
-  static const char * commit= "commit";
-  sqlite3_stmt *stmt3 = nullptr;
-  if (sqlite3_prepare_v2(conn,commit,strlen(commit),&stmt3,nullptr)!= SQLITE_OK) {
-    close();
-    sqlite3_finalize(stmt3);
-    return;    
-  }
-  if (sqlite3_step(stmt3) != SQLITE_DONE) {
-    close();
-    sqlite3_finalize(stmt3);
-    return;    
-  }
-  sqlite3_finalize(stmt3);
 }
 
 void IoTraceDb::create_data(const char *file_path) {
   rc = sqlite3_open(file_path, &conn);    
   if (rc != SQLITE_OK) {
     close();
-    cout << "创建数据库失败！！" <<endl;
+    cout << "Database creation failed !!" <<endl;
     return ;
   }
   // SQL CREAT
@@ -163,7 +129,7 @@ void IoTraceDb::create_data(const char *file_path) {
     close();
     return;
   }
-  //执行SQL语句
+
   if (sqlite3_step(stmt) != SQLITE_DONE) {
     sqlite3_finalize(stmt);
     cout << "Execution failure" << endl;
@@ -171,7 +137,7 @@ void IoTraceDb::create_data(const char *file_path) {
     return;
   }
   sqlite3_finalize(stmt);
-  cout<<"创建数据库和数据表成功!!"<<endl;
+  cout << "Create DATABASE and data table successfully!!" << endl;
          
 }
 

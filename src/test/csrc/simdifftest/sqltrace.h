@@ -43,11 +43,19 @@ public:
     void update_head(int value) {
         head = value;
     }
+    // Run the accumulated sqlite command
+    void sqlite_stmt_exec() {
+        sqlite3_exec(conn, "COMMIT", 0, 0, 0);
+    }
+    void sqlite_stmt_begin() {
+        sqlite3_exec(conn, "BEGIN TRANSACTION", 0, 0, 0);
+    }
     // Clear the database tables
     void drop();
 
 private:
     sqlite3 *conn = nullptr;
+
     int rc;
     int head = 0;
 };
