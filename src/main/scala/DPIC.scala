@@ -185,6 +185,14 @@ class DPIC[T <: DifftestBundle](gen: T, config: GatewayConfig) extends DPICBase(
     val body = lhs.zip(rhs.flatten).map { case (l, r) => s"packet->$l = $r;" }
     val packetDecl = Seq(getPacketDecl(gen, "io_", config))
     val validAssign = if (!gen.bits.hasValid || gen.isFlatten) Seq() else Seq("packet->valid = true;")
+    val messageBegin = Seq(s"message $desiredName {")
+    val validIo = rhs.flatten.zipWithIndex.map { case (r, index) =>
+      s"  optional uint64 $r = ${index + 1};"
+    }
+    val massageEnd = Seq("}")
+    val interfaceProtobuf = ListBuffer.empty[String]
+    interfaceProtobuf ++= messageBegin ++ validIo ++ massageEnd
+    streamToFile(interfaceProtobuf, "difftest-iotrace.proto", true)
     packetDecl ++ validAssign ++ body
   }
 
@@ -450,6 +458,10 @@ object DPIC {
     interfaceCpp += "#endif // CONFIG_NO_DIFFTEST"
     interfaceCpp += ""
     streamToFile(interfaceCpp, "difftest-dpic.cpp")
+
+    // val interfaceProtobuf = ListBuffer.empty[String]
+    // interfaceProtobuf +=
+    // streamToFile(interfaceProtobuf, "difftest-iotrace.proto")
 
     GatewayResult(
       cppMacros = Seq("CONFIG_DIFFTEST_DPIC"),
