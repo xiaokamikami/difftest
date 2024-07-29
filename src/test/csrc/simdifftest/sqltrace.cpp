@@ -114,8 +114,11 @@ void IoTraceDb::create_data(const char *file_path) {
     cout << "Database creation failed !!" <<endl;
     return ;
   }
+
+  load_extension();
+
   // SQL CREAT
-  const char * createTable = "create table iotrace(ID INTEGER PRIMARY KEY NOT NULL,RefillEvent TEXT,L1TLBEvent TEXT,\
+  const char *createTable = "create table iotrace(ID INTEGER PRIMARY KEY NOT NULL,RefillEvent TEXT,L1TLBEvent TEXT,\
   InstrCommit TEXT,LoadEvent TEXT,TrapEvent TEXT,ArchIntRegState TEXT,ArchFpRegState TEXT,ArchVecRegState TEXT,\
   ArchEvent TEXT,CSRState TEXT,HCSRState TEXT,DebugMode TEXT,VecCSRState TEXT,IntWriteback TEXT,FpWriteback TEXT,\
   VecWriteback TEXT,L2TLBEvent TEXT,AtomicEvent TEXT,LrScEvent TEXT,SbufferEvent TEXT,StoreEvent TEXT)";
@@ -137,8 +140,30 @@ void IoTraceDb::create_data(const char *file_path) {
     return;
   }
   sqlite3_finalize(stmt);
-  cout << "Create DATABASE and data table successfully!!" << endl;
-         
+  cout << "Create Database and data table successfully!!" << endl;
+}
+
+void IoTraceDb::load_extension() {
+#ifdef USE_SQL_ZSTD
+  int success = sqlite3_load_extension(conn, "libsqlite_zstd.so", NULL, NULL);
+  if (success != SQLITE_OK) {
+    fprintf(stderr, "Load extension failure: %s\n", sqlite3_errmsg(conn));
+  } else {
+    cout << "Load libsqlite_zstd.so" << endl;
+  }
+
+  // Enable Transparent Compression
+  const char *zstd_enable ="select zstd_enable_transparent('{\"table\": \"iotrace\",\
+    \"column\": \"ArchIntRegState,ArchFpRegState,ArchVecRegState,CSRState\", \"compression_level\": 19,\
+    \"dict_chooser\": \"''i.'' || (id / 1000000)\"}');";
+  sqlite3_stmt *stmt1 = nullptr;
+  if (sqlite3_prepare_v2(conn,zstd_enable,strlen(zstd_enable),&stmt1,nullptr) != SQLITE_OK) {
+    std::cout << "sql_zstd_enable failure " << zstd_enable << std::endl;
+    sqlite3_finalize(stmt1);
+    close();
+  }
+  sqlite3_finalize(stmt1);
+#endif // USE_SQL_ZSTD
 }
 
 //#endif // USE_IOTRACE_SQLLITE

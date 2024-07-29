@@ -35,8 +35,8 @@ public:
         sqlite3_close(conn);    
         return;
     }
-
-    void faile_exit(char *cause);
+    // Load extension
+    void load_extension();
     // Find ID the exists
     int id_exists(int id);
     // Update head value
@@ -46,6 +46,18 @@ public:
     // Run the accumulated sqlite command
     void sqlite_stmt_exec() {
         sqlite3_exec(conn, "COMMIT", 0, 0, 0);
+#ifdef USE_SQL_ZSTD
+        const char *zstd_select ="select zstd_incremental_maintenance(60, 1);";
+
+        sqlite3_stmt *stmt1 = nullptr;
+        if (sqlite3_prepare_v2(conn,zstd_select,strlen(zstd_select),&stmt1,nullptr) != SQLITE_OK) {
+            std::cout << "zstd_selec failure" << std::endl;
+            sqlite3_finalize(stmt1);
+            close();
+            return;
+        }
+        sqlite3_finalize(stmt1);
+#endif // USE_SQL_ZSTD
     }
     void sqlite_stmt_begin() {
         sqlite3_exec(conn, "BEGIN TRANSACTION", 0, 0, 0);

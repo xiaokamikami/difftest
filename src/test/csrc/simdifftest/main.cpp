@@ -13,6 +13,12 @@
 *
 * See the Mulan PSL v2 for more details.
 ***************************************************************************************/
+//#define PROF_SDL
+#define MAX_CLASS_INFO_SIZE 64 * 130 * NUM_CORES
+#define MAX_CLASS_SIZE 22
+#define MAX_CLASS_NAME_SIZE 20
+#define USE_IOTRACE_SQLLITE
+#define USE_THREAD
 
 //#ifdef CONFIG_SIMDIFFTEST
 #include <iostream>
@@ -21,7 +27,6 @@
 #include <zstd.h>
 #include <thread>
 
-//#define PROF_SDL
 #ifdef PROF_SDL
 #include <chrono>
 #endif // PROF_SDL
@@ -31,12 +36,6 @@
 #include "difftrace.h"
 #include "loadtrace.h"
 #include "sqltrace.h"
-
-#define MAX_CLASS_INFO_SIZE 64 * 130 * NUM_CORES
-#define MAX_CLASS_SIZE 22
-#define MAX_CLASS_NAME_SIZE 20
-#define USE_IOTRACE_SQLLITE
-#define USE_THREAD
 
 const char *sql_file_path = "./iotrace.db";
 IoTraceDb *sqlbase = NULL;

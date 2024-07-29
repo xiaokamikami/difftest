@@ -27,10 +27,16 @@ SIMDIFF_BUILD_DIR = $(abspath ../build/simv-compile)
 
 SIMDIFF_CXXFILES = $(shell find $(SIMDIFF_CSRC_DIRS) -name "*.cpp")
 SIMDIFF_CXXFILES += ./src/test/csrc/difftest/difftrace.cpp
-SIMDIFF_INCFLAGS = $(foreach dir,$(SIMDIFF_CSRC_DIRS),-I$(dir))
+SIMDIFF_INCFLAGS = $(foreach dir,$(SIMDIFF_CSRC_DIRS), -I$(dir))
 SIMDIFF_INCFLAGS += ./src/test/csrc/difftest/difftrace.h
 
 CXXFLAGS += -DCONFIG_SIMDIFFTEST $(subst \\\",\", $(SIM_CXXFLAGS)) 
+
+ifeq ($(SQL_ZSTD), 1)
+LDFLAGS += -L$(SQLITE_ZSTD) -lsqlite_zstd
+CXXFLAGS += -DUSE_SQL_ZSTD
+SIMDIFF_INCFLAGS += -I$(SQLITE_ZSTD)
+endif
 
 OBJS = $(patsubst $(SIMDIFF_CXXFILES)%.cpp,$(SIMDIFF_BUILD_DIR)%.o,$(SIMDIFF_CXXFILES))  
 
