@@ -185,7 +185,7 @@ class DPIC[T <: DifftestBundle](gen: T, config: GatewayConfig) extends DPICBase(
     val body = lhs.zip(rhs.flatten).map { case (l, r) => s"packet->$l = $r;" }
     val packetDecl = Seq(getPacketDecl(gen, "io_", config))
     val validAssign = if (!gen.bits.hasValid || gen.isFlatten) Seq() else Seq("packet->valid = true;")
-    val messageBegin = Seq(s"message $desiredName {")
+    val messageBegin = Seq(s"message ${desiredName}_protoc {")
     val validIo = rhs.flatten.zipWithIndex.map { case (r, index) =>
       s"  optional uint64 $r = ${index + 1};"
     }
