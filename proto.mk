@@ -15,9 +15,7 @@
 # See the Mulan PSL v2 for more details.
 #***************************************************************************************
 
-PROTOBUF_BUILD    = $(abspath $(BUILD_DIR)/protobuf)
 PROTOBUF_SRC      = $(abspath $(BUILD_DIR)/generated-src)
 
 proto:
-	mkdir -p $(PROTOBUF_BUILD)
-	protoc -I=$(PROTOBUF_SRC) --cpp_out=$(PROTOBUF_BUILD) $(PROTOBUF_SRC)/difftest-iotrace.proto --experimental_allow_proto3_optional
+	protoc -I=$(PROTOBUF_SRC) --cpp_out=$(PROTOBUF_SRC) $(PROTOBUF_SRC)/difftest-iotrace.proto --experimental_allow_proto3_optional

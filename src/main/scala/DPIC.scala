@@ -154,6 +154,19 @@ abstract class DPICBase(config: GatewayConfig) extends ExtModule with HasExtModu
 class DPIC[T <: DifftestBundle](gen: T, config: GatewayConfig) extends DPICBase(config) with DifftestModule[T] {
   val io = IO(Input(gen))
 
+  val filters: Seq[(DifftestBundle => Boolean, Seq[String])] = Seq(
+    ((_: DifftestBundle) => true, Seq("io_coreid", "dut_zone")),
+    ((x: DifftestBundle) => x.isIndexed, Seq("io_index")),
+    ((x: DifftestBundle) => x.isFlatten, Seq("io_address")),
+  )
+  val rhs = dpicFuncArgs.map(_.map(_._1).filterNot(s => filters.exists(f => f._1(gen) && f._2.contains(s))))
+  val lhs = rhs
+    .map(_.map(_.replace("io_", "")))
+    .flatMap(r =>
+      if (r.length == 1) r
+      else r.map(x => x.slice(0, x.lastIndexOf('_')) + s"[${x.split('_').last}]")
+    )
+
   override def desiredName: String = gen.desiredModuleName
   override def modPorts: Seq[Seq[(String, Data)]] = {
     super.modPorts ++ io.elements.toSeq.reverse.map { case (name, data) =>
@@ -170,21 +183,15 @@ class DPIC[T <: DifftestBundle](gen: T, config: GatewayConfig) extends DPICBase(
   }
 
   override def dpicFuncAssigns: Seq[String] = {
-    val filters: Seq[(DifftestBundle => Boolean, Seq[String])] = Seq(
-      ((_: DifftestBundle) => true, Seq("io_coreid", "dut_zone")),
-      ((x: DifftestBundle) => x.isIndexed, Seq("io_index")),
-      ((x: DifftestBundle) => x.isFlatten, Seq("io_address")),
-    )
-    val rhs = dpicFuncArgs.map(_.map(_._1).filterNot(s => filters.exists(f => f._1(gen) && f._2.contains(s))))
-    val lhs = rhs
-      .map(_.map(_.replace("io_", "")))
-      .flatMap(r =>
-        if (r.length == 1) r
-        else r.map(x => x.slice(0, x.lastIndexOf('_')) + s"[${x.split('_').last}]")
-      )
     val body = lhs.zip(rhs.flatten).map { case (l, r) => s"packet->$l = $r;" }
     val packetDecl = Seq(getPacketDecl(gen, "io_", config))
     val validAssign = if (!gen.bits.hasValid || gen.isFlatten) Seq() else Seq("packet->valid = true;")
+    dpicProtobufMessageTemplate()
+    dpicProtobufCppSerialization()
+    packetDecl ++ validAssign ++ body
+  }
+
+  def dpicProtobufMessageTemplate(): Unit = {
     val messageBegin = Seq(s"message ${desiredName}_protoc {")
     val validIo = rhs.flatten.zipWithIndex.map { case (r, index) =>
       s"  optional uint64 $r = ${index + 1};"
@@ -193,7 +200,20 @@ class DPIC[T <: DifftestBundle](gen: T, config: GatewayConfig) extends DPICBase(
     val interfaceProtobuf = ListBuffer.empty[String]
     interfaceProtobuf ++= messageBegin ++ validIo ++ massageEnd
     streamToFile(interfaceProtobuf, "difftest-iotrace.proto", true)
-    packetDecl ++ validAssign ++ body
+  }
+
+  def dpicProtobufCppSerialization(): Unit = {
+    val protoInstanName = s"${desiredName}_class";
+    val protoStructName = s"${desiredName}_struct";
+    val funcHead = Seq(s"${desiredName}_dump(${desiredName} ${desiredName}_struct) {")
+    val classCreat = Seq(s"  ${desiredName}_protoc ${protoInstanName};")
+    val ioDump = rhs.flatten.zipWithIndex.map { case (r, index) =>
+      s"  ${protoInstanName}.set_$r(${protoStructName}.$r);"
+    }
+    val funcEnd = Seq(s"}\n")
+    val interfaceProtobuf = ListBuffer.empty[String]
+    interfaceProtobuf ++= funcHead ++ classCreat ++ ioDump ++ funcEnd
+    streamToFile(interfaceProtobuf, "difftest-protobufSer.cpp", true)
   }
 
   setInline(s"$desiredName.v", moduleBody)
@@ -321,8 +341,17 @@ private class DummyDPICBatchWrapper(
 
 object DPIC {
   val interfaces = ListBuffer.empty[(String, String, String)]
-
+  private var ProtoInclude = false
   def apply(control: GatewaySinkControl, io: Valid[DifftestBundle], config: GatewayConfig): Unit = {
+    if(config.hasProtoBuf == true && ProtoInclude == false) {
+      val include = Seq(s"#include \"difftest-iotrace.pb.hh\"\n" +
+        s"#include \"diffstate.h\"\n" +
+        s"")
+      val interfaceProtobuf = ListBuffer.empty[String]
+      interfaceProtobuf ++= include
+      streamToFile(interfaceProtobuf, "difftest-protobufSer.cpp", true)
+      ProtoInclude = true
+    }
     val module = Module(new DummyDPICWrapper(chiselTypeOf(io), config))
     module.control := control
     module.io := io
