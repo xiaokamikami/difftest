@@ -1345,7 +1345,7 @@ void Difftest::display_stats() {
   auto trap = get_trap_event();
   uint64_t instrCnt = trap->instrCnt;
   uint64_t cycleCnt = trap->cycleCnt;
-  double ipc = (double)instrCnt / cycleCnt;
+  double ipc = (double)(instrCnt - warmup_instrs - cmn_warmup_instrs) / (cycleCnt - warmup_cycle - cmn_warmup_cycle);
   eprintf(ANSI_COLOR_MAGENTA "Core-%d instrCnt = %'" PRIu64 ", cycleCnt = %'" PRIu64 ", IPC = %lf\n" ANSI_COLOR_RESET,
           this->id, instrCnt, cycleCnt, ipc);
 }

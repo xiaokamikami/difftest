@@ -50,6 +50,7 @@ import "DPI-C" function void set_max_instrs(longint mc);
 import "DPI-C" function longint get_stuck_limit();
 import "DPI-C" function void set_overwrite_nbytes(longint len);
 import "DPI-C" function void set_overwrite_autoset();
+import "DPI-C" function void set_warmup_instrs();
 `ifdef WITH_DRAMSIM3
 import "DPI-C" function void simv_tick();
 `endif // WITH_DRAMSIM3
@@ -142,6 +143,9 @@ initial begin
   if ($test$plusargs("max-instrs")) begin
     $value$plusargs("max-instrs=%d", max_instrs);
     set_max_instrs(max_instrs);
+  end
+  if ($test$plusargs("set-warmup")) begin
+    set_warmup_instrs();
   end
 `ifdef CONFIG_DIFFTEST_IOTRACE
   // set difftest iotrace directory path

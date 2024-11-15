@@ -44,12 +44,17 @@ static bool enable_difftest = true;
 static uint64_t max_instrs = 0;
 static char *workload_list = NULL;
 static uint32_t overwrite_nbytes = 0xe00;
-struct core_end_info_t {
+static uint64_t use_wamup = false;
+static uint64_t warmup_instrs = 20000000;
+static uint64_t cmn_warmup_instrs = 2497210;//cmn insts
+struct core_info_t {
   bool core_trap[NUM_CORES];
   double core_cpi[NUM_CORES];
+  bool core_warmup[NUM_CORES];
+  bool cmn_warmup[NUM_CORES];
   uint8_t core_trap_num;
 };
-static core_end_info_t core_end_info;
+core_info_t core_end_info;
 
 enum {
   SIMV_RUN,
@@ -82,6 +87,11 @@ extern "C" void set_overwrite_autoset() {
   fseek(fp, 4, SEEK_SET);
   fread(&overwrite_nbytes, sizeof(uint32_t), 1, fp);
   fclose(fp);
+}
+
+extern "C" void set_warmup_instrs() {
+  use_wamup = true;
+  printf("set warmup_instrs %ld\n", warmup_instrs);
 }
 
 extern "C" void set_gcpt_bin(char *s) {
@@ -244,6 +254,25 @@ extern "C" uint8_t simv_step() {
       if (core_end_info.core_trap[i])
         continue;
       auto trap = difftest[i]->get_trap_event();
+      // warmup doesn't make sense if you don't set it to exit by max-instrs , so it's only checked here
+      if (use_wamup) {
+        if (!core_end_info.core_warmup[i]) {
+          if (trap->instrCnt >= warmup_instrs) {
+            Info("Warmup finished. The performance counters will be dumped and then reset.\n");
+            eprintf("core-%d warmup cycle %ld instrs %ld\n", trap->cycleCnt, trap->instrCnt);
+            difftest[i]->set_warmup_info(trap->cycleCnt, warmup_instrs);
+            core_end_info.core_warmup[i] = true;
+          }
+        } else if(!core_end_info.cmn_warmup[i]) {
+          if (trap->instrCnt >= cmn_warmup_instrs) {
+            Info("CMN Warmup finished. The performance counters will be dumped and then reset.\n");
+            eprintf("core-%d warmup cycle %ld instrs %ld\n", trap->cycleCnt, trap->instrCnt);
+            difftest[i]->set_cmn_wamup_info(trap->cycleCnt, warmup_instrs);
+            core_end_info.cmn_warmup[i] = true;
+          }
+        }
+      }
+
       if (max_instrs < trap->instrCnt) {
         core_end_info.core_trap[i] = true;
         core_end_info.core_trap_num++;
@@ -303,8 +332,10 @@ void simv_finish() {
   delete simMemory;
   simMemory = nullptr;
 
-  for (int i = 0; i < NUM_CORES; i++)
+  for (int i = 0; i < NUM_CORES; i++) {
     core_end_info.core_trap[i] = false;
+    core_end_info.core_warmup[i] = false;
+  }
   core_end_info.core_trap_num = 0;
 }
 
