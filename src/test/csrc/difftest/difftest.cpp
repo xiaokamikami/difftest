@@ -1345,9 +1345,15 @@ void Difftest::display_stats() {
   auto trap = get_trap_event();
   uint64_t instrCnt = trap->instrCnt;
   uint64_t cycleCnt = trap->cycleCnt;
-  double ipc = (double)(instrCnt - warmup_instrs - cmn_warmup_instrs) / (cycleCnt - warmup_cycle - cmn_warmup_cycle);
+  uint64_t instr_fx = instrCnt - warmup_instrs - cmn_warmup_instrs;
+  uint64_t cycle_fx = cycleCnt - warmup_cycle - cmn_warmup_cycle;
+  double ipc = (double)(instr_fx) / cycle_fx;
   eprintf(ANSI_COLOR_MAGENTA "Core-%d instrCnt = %'" PRIu64 ", cycleCnt = %'" PRIu64 ", IPC = %lf\n" ANSI_COLOR_RESET,
-          this->id, instrCnt, cycleCnt, ipc);
+          this->id, instr_fx, cycle_fx, ipc);
+  eprintf(ANSI_COLOR_MAGENTA "instrcnt_sum = %'" PRIu64 ", cycle_sum = %'" PRIu64 ", warmup_instrs = %'" PRIu64
+                             ", warmup_cycle = %'" PRIu64 ", cmn_warmup_instrs = %'" PRIu64
+                             ", cmn_warmup_cycle = %'" PRIu64 "\n" ANSI_COLOR_RESET,
+          instrCnt, cycleCnt, warmup_instrs, warmup_cycle, cmn_warmup_instrs, cmn_warmup_cycle);
 }
 
 void DiffState::display_commit_count(int i) {

@@ -46,7 +46,7 @@ static char *workload_list = NULL;
 static uint32_t overwrite_nbytes = 0xe00;
 static uint64_t use_wamup = false;
 static uint64_t warmup_instrs = 20000000;
-static uint64_t cmn_warmup_instrs = 2497210;//cmn insts
+static uint64_t cmn_warmup_instrs = 2497210; //cmn insts
 struct core_info_t {
   bool core_trap[NUM_CORES];
   double core_cpi[NUM_CORES];
@@ -256,18 +256,22 @@ extern "C" uint8_t simv_step() {
       auto trap = difftest[i]->get_trap_event();
       // warmup doesn't make sense if you don't set it to exit by max-instrs , so it's only checked here
       if (use_wamup) {
+        static uint64_t cmn_inst = 0;
+        static uint64_t cmn_cycle = 0;
         if (!core_end_info.core_warmup[i]) {
-          if (trap->instrCnt >= warmup_instrs) {
+          if (trap->instrCnt >= (warmup_instrs + cmn_warmup_instrs)) {
             Info("Warmup finished. The performance counters will be dumped and then reset.\n");
             eprintf("core-%d warmup cycle %ld instrs %ld\n", trap->cycleCnt, trap->instrCnt);
-            difftest[i]->set_warmup_info(trap->cycleCnt, warmup_instrs);
+            difftest[i]->set_warmup_info(trap->cycleCnt - cmn_cycle, trap->instrCnt - cmn_inst);
             core_end_info.core_warmup[i] = true;
           }
-        } else if(!core_end_info.cmn_warmup[i]) {
+        } else if (!core_end_info.cmn_warmup[i]) {
           if (trap->instrCnt >= cmn_warmup_instrs) {
             Info("CMN Warmup finished. The performance counters will be dumped and then reset.\n");
             eprintf("core-%d warmup cycle %ld instrs %ld\n", trap->cycleCnt, trap->instrCnt);
-            difftest[i]->set_cmn_wamup_info(trap->cycleCnt, warmup_instrs);
+            cmn_inst = trap->instrCnt;
+            cmn_cycle = trap->cycleCnt;
+            difftest[i]->set_cmn_wamup_info(trap->cycleCnt, trap->instrCnt);
             core_end_info.cmn_warmup[i] = true;
           }
         }

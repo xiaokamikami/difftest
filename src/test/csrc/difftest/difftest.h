@@ -291,6 +291,7 @@ public:
     cmn_warmup_cycle = cycle;
     cmn_warmup_instrs = instr;
   }
+
 protected:
   DiffTrace<DiffTestState> *difftrace = nullptr;
 
